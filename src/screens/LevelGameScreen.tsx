@@ -10,7 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
+import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
@@ -72,8 +72,8 @@ export default function LevelGameScreen() {
     const isCorrect = answer === correctAnswer;
 
     if (settings.hapticFeedback) {
-      Haptics.impactAsync(
-        isCorrect ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Heavy
+      safeHaptics.impact(
+        isCorrect ? ImpactFeedbackStyle.Light : ImpactFeedbackStyle.Heavy
       );
     }
 
@@ -130,7 +130,7 @@ export default function LevelGameScreen() {
   // Replay current sound
   const handleReplay = () => {
     if (settings.hapticFeedback) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      safeHaptics.impact(ImpactFeedbackStyle.Light);
     }
 
     // TODO: Implement actual audio playback

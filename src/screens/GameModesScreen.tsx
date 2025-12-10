@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
+import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
@@ -127,10 +127,10 @@ export default function GameModesScreen() {
     setSpeedAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notification(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notification(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, speedState.currentItem, 'note');
@@ -184,10 +184,10 @@ export default function GameModesScreen() {
     setSurvivalAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notification(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notification(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, survivalState.currentItem, 'note');
@@ -248,10 +248,10 @@ export default function GameModesScreen() {
     setIntervalAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notification(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notification(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, intervalState.currentInterval.name, 'interval');
@@ -283,7 +283,7 @@ export default function GameModesScreen() {
 
   // Play Sound
   const playSound = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeHaptics.impact(ImpactFeedbackStyle.Light);
     // TODO: Implement actual audio playback
   };
 

@@ -1,4 +1,5 @@
 import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
 import { Instrument, NOTE_FREQUENCIES, ALL_NOTES, CHORD_INTERVALS, ChordType } from '../types';
 
 // Audio context simulation for React Native
@@ -14,11 +15,18 @@ class AudioEngine {
   }
 
   private async initAudio() {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-    });
+    // Only set audio mode on native platforms
+    if (Platform.OS !== 'web') {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+      } catch (e) {
+        // Silently fail if audio not available
+      }
+    }
   }
 
   setVolume(vol: number) {
@@ -110,24 +118,14 @@ class AudioEngine {
 
   // Simple beep for feedback
   async playBeep(success: boolean = true) {
-    try {
-      // Use a simple approach - just play a quick tone
-      const frequency = success ? 880 : 220;
-      // For simplicity, we'll rely on haptic feedback instead of audio beeps
-    } catch (error) {
-      console.log('Error playing beep:', error);
-    }
+    // TODO: Implement audio beep using expo-av
+    // For now, rely on haptic feedback
   }
 
   // Play a single note - simplified for React Native
   async playNote(note: string, octave: number = 4, duration: number = 1): Promise<void> {
-    const frequency = this.getNoteFrequency(note, octave);
-    console.log(`Playing note: ${note}${octave} at ${frequency}Hz`);
-    
-    // In a real implementation, you would use expo-av with pre-recorded samples
+    // TODO: Implement with expo-av using pre-recorded samples
     // or a native audio synthesis library
-    // For now, we'll just log the action
-    
     return new Promise((resolve) => {
       setTimeout(resolve, duration * 1000);
     });
@@ -137,9 +135,7 @@ class AudioEngine {
   async playChord(root: string, type: ChordType, octave: number = 4, duration: number = 1.5): Promise<void> {
     const intervals = CHORD_INTERVALS[type] || [0, 4, 7];
     const rootIndex = ALL_NOTES.indexOf(root);
-    
-    console.log(`Playing ${root} ${type} chord`);
-    
+
     // Get all notes in the chord
     const notes = intervals.map(interval => {
       const noteIndex = (rootIndex + interval) % 12;
@@ -147,10 +143,7 @@ class AudioEngine {
       return { note: ALL_NOTES[noteIndex], octave: noteOctave };
     });
 
-    // Play all notes simultaneously (in a real implementation)
-    notes.forEach(({ note }) => {
-      console.log(`  - ${note}`);
-    });
+    // TODO: Play all notes simultaneously using expo-av
 
     return new Promise((resolve) => {
       setTimeout(resolve, duration * 1000);
@@ -163,8 +156,6 @@ class AudioEngine {
     const secondNoteIndex = (rootIndex + semitones) % 12;
     const secondNote = ALL_NOTES[secondNoteIndex];
     const secondOctave = octave + Math.floor((rootIndex + semitones) / 12);
-
-    console.log(`Playing interval: ${rootNote}${octave} - ${secondNote}${secondOctave}`);
 
     // Play root note
     await this.playNote(rootNote, octave, 0.5);
