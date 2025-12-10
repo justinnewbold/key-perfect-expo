@@ -10,7 +10,7 @@ import { GAME_MODES } from '../types';
 
 const { width } = Dimensions.get('window');
 
-export default function GameModesScreen() {
+export default function GameModesListScreen() {
   const navigation = useNavigation<any>();
   const { stats } = useApp();
 

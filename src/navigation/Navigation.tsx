@@ -15,7 +15,7 @@ import LearnScreen from '../screens/LearnScreen';
 import StatsScreen from '../screens/StatsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import GameModesListScreen from '../screens/GameModesListScreen';
-import GameModeScreen from '../screens/GameModeScreen';
+import GameModeScreen from '../screens/GameModesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();

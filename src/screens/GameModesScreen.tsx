@@ -284,7 +284,7 @@ export default function GameModesScreen() {
   // Play Sound
   const playSound = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Playing sound...');
+    // TODO: Implement actual audio playback
   };
 
   // Render Mode Selection

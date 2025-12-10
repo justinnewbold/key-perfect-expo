@@ -90,7 +90,7 @@ export default function PracticeScreen() {
   const playSound = () => {
     if (!practiceState) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log(`Playing: ${practiceState.currentItem}`);
+    // TODO: Implement actual audio playback
   };
 
   const handleAnswer = async (answer: string) => {

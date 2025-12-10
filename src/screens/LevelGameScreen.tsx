@@ -52,15 +52,8 @@ export default function LevelGameScreen() {
     const allOptions = shuffleArray([answer, ...shuffledWrong]);
     setOptions(allOptions);
 
-    // Play the sound
-    if (level.type === 'single-note') {
-      // Play note
-      console.log(`Playing note: ${answer}`);
-    } else {
-      // Play chord
-      const { root, type } = parseChordName(answer);
-      console.log(`Playing chord: ${root} ${type}`);
-    }
+    // TODO: Implement actual audio playback using the answer
+    // For chords, use parseChordName(answer) to get root and type
 
     setGameState('playing');
     setSelectedAnswer(null);
@@ -139,13 +132,9 @@ export default function LevelGameScreen() {
     if (settings.hapticFeedback) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    
-    if (level.type === 'single-note') {
-      console.log(`Replaying note: ${correctAnswer}`);
-    } else {
-      const { root, type } = parseChordName(correctAnswer);
-      console.log(`Replaying chord: ${root} ${type}`);
-    }
+
+    // TODO: Implement actual audio playback
+    // For chords, use parseChordName(correctAnswer) to get root and type
   };
 
   // Complete level
