@@ -52,9 +52,17 @@ interface IntervalGameState {
   options: typeof INTERVALS;
 }
 
+interface DailyGameState {
+  score: number;
+  attempts: number;
+  requiredCorrect: number;
+  currentItem: string;
+  options: string[];
+}
+
 export default function GameModesScreen() {
   const navigation = useNavigation<any>();
-  const { recordAnswer, addXP, updateStats, stats, settings } = useApp();
+  const { recordAnswer, addXP, updateStats, stats, settings, playNote, playChord } = useApp();
 
   const [activeMode, setActiveMode] = useState<ActiveMode>(null);
   
@@ -73,6 +81,8 @@ export default function GameModesScreen() {
 
   // Daily Challenge
   const [dailyCompleted, setDailyCompleted] = useState(false);
+  const [dailyState, setDailyState] = useState<DailyGameState | null>(null);
+  const [dailyAnswerState, setDailyAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -83,9 +93,9 @@ export default function GameModesScreen() {
     };
   }, []);
 
-  // Speed Mode Timer
+  // Speed Mode Timer - only depend on activeMode to avoid creating multiple intervals
   useEffect(() => {
-    if (activeMode === 'speed' && speedState && speedState.timeLeft > 0) {
+    if (activeMode === 'speed') {
       speedTimerRef.current = setInterval(() => {
         setSpeedState(prev => {
           if (!prev) return prev;
@@ -101,7 +111,7 @@ export default function GameModesScreen() {
         if (speedTimerRef.current) clearInterval(speedTimerRef.current);
       };
     }
-  }, [activeMode, speedState?.timeLeft]);
+  }, [activeMode]);
 
   // Start Speed Mode
   const startSpeedMode = () => {
@@ -272,19 +282,108 @@ export default function GameModesScreen() {
     }, 500);
   };
 
-  // Complete Daily Challenge
-  const completeDailyChallenge = async () => {
-    await addXP(DAILY_CHALLENGE_BONUS);
-    await updateStats({ 
-      dailyChallengesCompleted: stats.dailyChallengesCompleted + 1 
+  // Start Daily Challenge
+  const startDailyChallenge = () => {
+    const items = ALL_NOTES;
+    const currentItem = items[Math.floor(Math.random() * items.length)];
+    const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+
+    setDailyState({
+      score: 0,
+      attempts: 0,
+      requiredCorrect: 10,
+      currentItem,
+      options,
     });
-    setDailyCompleted(true);
+    setDailyAnswerState('default');
+    setActiveMode('daily');
   };
 
-  // Play Sound
-  const playSound = () => {
+  // Daily Challenge Answer
+  const handleDailyAnswer = async (answer: string) => {
+    if (!dailyState || dailyAnswerState !== 'default') return;
+
+    const isCorrect = answer === dailyState.currentItem;
+    setDailyAnswerState(isCorrect ? 'correct' : 'incorrect');
+
+    if (isCorrect) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await addXP(XP_PER_CORRECT);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+
+    await recordAnswer(isCorrect, dailyState.currentItem, 'note');
+
+    const newScore = dailyState.score + (isCorrect ? 1 : 0);
+    const newAttempts = dailyState.attempts + 1;
+
+    // Check if challenge is complete (10 correct answers)
+    if (newScore >= dailyState.requiredCorrect) {
+      setTimeout(async () => {
+        await addXP(DAILY_CHALLENGE_BONUS);
+        await updateStats({
+          dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
+        });
+        setDailyCompleted(true);
+        setDailyState(null);
+      }, 500);
+      return;
+    }
+
+    setTimeout(() => {
+      const items = ALL_NOTES;
+      const currentItem = items[Math.floor(Math.random() * items.length)];
+      const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+
+      setDailyState({
+        ...dailyState,
+        score: newScore,
+        attempts: newAttempts,
+        currentItem,
+        options,
+      });
+      setDailyAnswerState('default');
+    }, 300);
+  };
+
+  // Play Daily Sound
+  const playDailySound = async () => {
+    if (dailyState) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await playNote(dailyState.currentItem);
+    }
+  };
+
+  // Play Sound for current mode
+  const playSound = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Playing sound...');
+
+    if (activeMode === 'speed' && speedState) {
+      await playNote(speedState.currentItem);
+    } else if (activeMode === 'survival' && survivalState) {
+      // Survival mode can have notes or chords at higher levels
+      const item = survivalState.currentItem;
+      if (item.includes(' ')) {
+        // It's a chord like "C Major"
+        const parts = item.split(' ');
+        const root = parts[0];
+        const type = parts.slice(1).join(' ').toLowerCase();
+        await playChord(root, type);
+      } else {
+        await playNote(item);
+      }
+    } else if (activeMode === 'intervals' && intervalState) {
+      // Play the interval (root note and then the interval note)
+      const rootNote = 'C';
+      await playNote(rootNote);
+      // Play second note after a short delay
+      setTimeout(async () => {
+        const semitones = intervalState.currentInterval.semitones;
+        const noteIndex = (ALL_NOTES.indexOf(rootNote) + semitones) % 12;
+        await playNote(ALL_NOTES[noteIndex]);
+      }, 500);
+    }
   };
 
   // Render Mode Selection
@@ -309,7 +408,7 @@ export default function GameModesScreen() {
                   if (mode.id === 'speed') startSpeedMode();
                   else if (mode.id === 'survival') startSurvivalMode();
                   else if (mode.id === 'intervals') startIntervalsMode();
-                  else if (mode.id === 'daily') setActiveMode('daily');
+                  else if (mode.id === 'daily') startDailyChallenge();
                 }}
               >
                 <View style={[styles.modeIcon, { backgroundColor: mode.color + '30' }]}>
@@ -581,7 +680,7 @@ export default function GameModesScreen() {
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>🎉</Text>
             <Text style={styles.resultTitle}>Daily Complete!</Text>
-            <Text style={styles.resultScore}>+{DAILY_CHALLENGE_BONUS} XP</Text>
+            <Text style={styles.resultScore}>+{DAILY_CHALLENGE_BONUS} XP Bonus!</Text>
             <Button
               title="Back to Modes"
               onPress={() => {
@@ -597,36 +696,63 @@ export default function GameModesScreen() {
       );
     }
 
-    return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
-        <View style={styles.gameContent}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => setActiveMode(null)}>
-              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Daily Challenge</Text>
-            <View style={{ width: 24 }} />
-          </View>
+    if (dailyState) {
+      return (
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+          <View style={styles.gameContent}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => {
+                setActiveMode(null);
+                setDailyState(null);
+              }}>
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.title}>Daily Challenge</Text>
+              <View style={styles.timerBadge}>
+                <Text style={styles.timerText}>{dailyState.score}/10</Text>
+              </View>
+            </View>
 
-          <GlassCard style={styles.dailyCard}>
-            <Ionicons name="calendar" size={48} color={COLORS.dailyChallenge} />
-            <Text style={styles.dailyTitle}>Today's Challenge</Text>
-            <Text style={styles.dailyDesc}>
-              Complete 10 note identifications to earn bonus XP!
+            <Text style={styles.scoreText}>
+              Progress: {dailyState.score} correct out of {dailyState.attempts} attempts
             </Text>
-            <Text style={styles.dailyReward}>Reward: +{DAILY_CHALLENGE_BONUS} XP</Text>
-          </GlassCard>
 
-          <Button
-            title="Complete Challenge"
-            onPress={completeDailyChallenge}
-            variant="primary"
-            size="lg"
-            style={{ marginTop: SPACING.lg }}
-          />
-        </View>
-      </LinearGradient>
-    );
+            <TouchableOpacity style={styles.playButton} onPress={playDailySound}>
+              <LinearGradient
+                colors={[COLORS.dailyChallenge, COLORS.dailyChallenge + 'CC']}
+                style={styles.playButtonGradient}
+              >
+                <Ionicons name="play" size={48} color={COLORS.textPrimary} />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text style={styles.instruction}>Identify the note to complete your daily challenge!</Text>
+
+            <View style={styles.answersGrid}>
+              {dailyState.options.map((option) => {
+                let buttonStyle = styles.answerButton;
+                if (dailyAnswerState === 'correct' && option === dailyState.currentItem) {
+                  buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+                } else if (dailyAnswerState === 'incorrect' && option === dailyState.currentItem) {
+                  buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    style={buttonStyle}
+                    onPress={() => handleDailyAnswer(option)}
+                    disabled={dailyAnswerState !== 'default'}
+                  >
+                    <Text style={styles.answerText}>{option}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </LinearGradient>
+      );
+    }
   }
 
   return null;

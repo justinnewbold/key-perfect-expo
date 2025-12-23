@@ -28,7 +28,7 @@ export default function LevelGameScreen() {
   const { levelId } = route.params;
   const level = LEVELS.find(l => l.id === levelId)!;
   
-  const { recordAnswer, addXP, completeLevel, settings } = useApp();
+  const { recordAnswer, addXP, completeLevel, settings, playNote, playChord } = useApp();
 
   const [gameState, setGameState] = useState<GameState>('playing');
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -41,8 +41,18 @@ export default function LevelGameScreen() {
   const [shakeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(1));
 
+  // Play sound for the given answer
+  const playSoundForAnswer = useCallback(async (answer: string) => {
+    if (level.type === 'single-note') {
+      await playNote(answer);
+    } else {
+      const { root, type } = parseChordName(answer);
+      await playChord(root, type);
+    }
+  }, [level.type, playNote, playChord]);
+
   // Generate a new question
-  const generateQuestion = useCallback(() => {
+  const generateQuestion = useCallback(async () => {
     const answer = level.keys[Math.floor(Math.random() * level.keys.length)];
     setCorrectAnswer(answer);
 
@@ -52,19 +62,14 @@ export default function LevelGameScreen() {
     const allOptions = shuffleArray([answer, ...shuffledWrong]);
     setOptions(allOptions);
 
-    // Play the sound
-    if (level.type === 'single-note') {
-      // Play note
-      console.log(`Playing note: ${answer}`);
-    } else {
-      // Play chord
-      const { root, type } = parseChordName(answer);
-      console.log(`Playing chord: ${root} ${type}`);
-    }
-
     setGameState('playing');
     setSelectedAnswer(null);
-  }, [level]);
+
+    // Play the sound after a short delay to ensure state is updated
+    setTimeout(() => {
+      playSoundForAnswer(answer);
+    }, 300);
+  }, [level, playSoundForAnswer]);
 
   // Initialize first question
   useEffect(() => {
@@ -135,17 +140,12 @@ export default function LevelGameScreen() {
   };
 
   // Replay current sound
-  const handleReplay = () => {
+  const handleReplay = async () => {
     if (settings.hapticFeedback) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    
-    if (level.type === 'single-note') {
-      console.log(`Replaying note: ${correctAnswer}`);
-    } else {
-      const { root, type } = parseChordName(correctAnswer);
-      console.log(`Replaying chord: ${root} ${type}`);
-    }
+
+    await playSoundForAnswer(correctAnswer);
   };
 
   // Complete level

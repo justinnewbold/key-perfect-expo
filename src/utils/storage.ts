@@ -117,16 +117,26 @@ export function generateDailyChallenge(date: string): DailyChallenge {
 
 // Streak calculations
 export function calculateStreak(lastPracticeDate: string, currentStreak: number): number {
+  // Handle empty or invalid date - this is the first practice
+  if (!lastPracticeDate || lastPracticeDate === '') {
+    return 1;
+  }
+
   const today = new Date().toISOString().split('T')[0];
-  const last = new Date(lastPracticeDate).toISOString().split('T')[0];
-  
-  if (!lastPracticeDate) return 1;
-  
+
+  // Validate the last practice date before parsing
+  const lastDateObj = new Date(lastPracticeDate);
+  if (isNaN(lastDateObj.getTime())) {
+    return 1; // Invalid date, start fresh
+  }
+
+  const last = lastDateObj.toISOString().split('T')[0];
+
   const todayDate = new Date(today);
   const lastDate = new Date(last);
   const diffTime = todayDate.getTime() - lastDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) {
     return currentStreak; // Same day
   } else if (diffDays === 1) {

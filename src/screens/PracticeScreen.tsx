@@ -35,7 +35,7 @@ interface PracticeState {
 
 export default function PracticeScreen() {
   const navigation = useNavigation<any>();
-  const { recordAnswer, addXP, settings } = useApp();
+  const { recordAnswer, addXP, settings, playNote, playChord } = useApp();
 
   const [isConfiguring, setIsConfiguring] = useState(true);
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('notes');
@@ -87,10 +87,22 @@ export default function PracticeScreen() {
     setSelectedAnswer(null);
   };
 
-  const playSound = () => {
+  const playSound = async () => {
     if (!practiceState) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log(`Playing: ${practiceState.currentItem}`);
+
+    const item = practiceState.currentItem;
+    // Check if it's a chord (contains space like "C Major") or a note
+    if (item.includes(' ')) {
+      // It's a chord
+      const parts = item.split(' ');
+      const root = parts[0];
+      const type = parts.slice(1).join(' ').toLowerCase();
+      await playChord(root, type);
+    } else {
+      // It's a note
+      await playNote(item);
+    }
   };
 
   const handleAnswer = async (answer: string) => {
@@ -110,8 +122,9 @@ export default function PracticeScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
 
-    // Record answer
-    const itemType = practiceMode === 'chords' ? 'chord' : 'note';
+    // Record answer - detect type based on whether item contains a space (chords like "C Major")
+    const isChord = practiceState.currentItem.includes(' ');
+    const itemType = isChord ? 'chord' : 'note';
     await recordAnswer(isCorrect, practiceState.currentItem, itemType);
 
     if (isCorrect) {
