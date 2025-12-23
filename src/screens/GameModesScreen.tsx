@@ -11,24 +11,26 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import Button from '../components/Button';
-import { 
-  GAME_MODES, 
-  ALL_NOTES, 
-  MAJOR_CHORDS, 
-  INTERVALS, 
+import {
+  GAME_MODES,
+  ALL_NOTES,
+  MAJOR_CHORDS,
+  INTERVALS,
+  SCALES,
   XP_PER_CORRECT,
   DAILY_CHALLENGE_BONUS,
 } from '../types';
 import { shuffleArray, getWrongOptions } from '../utils/audioUtils';
+import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
+import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../utils/storage';
 
 const { width } = Dimensions.get('window');
 
-type ActiveMode = 'speed' | 'survival' | 'daily' | 'intervals' | null;
+type ActiveMode = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | null;
 
 interface SpeedGameState {
   score: number;
@@ -60,6 +62,13 @@ interface DailyGameState {
   options: string[];
 }
 
+interface ScalesGameState {
+  score: number;
+  attempts: number;
+  currentScale: typeof SCALES[0];
+  options: typeof SCALES;
+}
+
 export default function GameModesScreen() {
   const navigation = useNavigation<any>();
   const { recordAnswer, addXP, updateStats, stats, settings, playNote, playChord } = useApp();
@@ -81,10 +90,24 @@ export default function GameModesScreen() {
 
   // Daily Challenge
   const [dailyCompleted, setDailyCompleted] = useState(false);
+  const [dailyAlreadyDone, setDailyAlreadyDone] = useState(false);
   const [dailyState, setDailyState] = useState<DailyGameState | null>(null);
   const [dailyAnswerState, setDailyAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
+  // Scales Mode
+  const [scalesState, setScalesState] = useState<ScalesGameState | null>(null);
+  const [scalesAnswerState, setScalesAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Check if daily challenge is already completed today
+  useEffect(() => {
+    const checkDailyChallenge = async () => {
+      const completed = await isDailyChallengeCompletedToday();
+      setDailyAlreadyDone(completed);
+    };
+    checkDailyChallenge();
+  }, []);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -137,10 +160,10 @@ export default function GameModesScreen() {
     setSpeedAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, speedState.currentItem, 'note');
@@ -194,10 +217,10 @@ export default function GameModesScreen() {
     setSurvivalAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, survivalState.currentItem, 'note');
@@ -258,10 +281,10 @@ export default function GameModesScreen() {
     setIntervalAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, intervalState.currentInterval.name, 'interval');
@@ -307,10 +330,10 @@ export default function GameModesScreen() {
     setDailyAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
       await addXP(XP_PER_CORRECT);
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
     await recordAnswer(isCorrect, dailyState.currentItem, 'note');
@@ -325,7 +348,9 @@ export default function GameModesScreen() {
         await updateStats({
           dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
         });
+        await markDailyChallengeCompleted();
         setDailyCompleted(true);
+        setDailyAlreadyDone(true);
         setDailyState(null);
       }, 500);
       return;
@@ -350,14 +375,79 @@ export default function GameModesScreen() {
   // Play Daily Sound
   const playDailySound = async () => {
     if (dailyState) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
       await playNote(dailyState.currentItem);
+    }
+  };
+
+  // Start Scales Mode
+  const startScalesMode = () => {
+    const shuffledScales = shuffleArray([...SCALES]);
+    const currentScale = shuffledScales[0];
+    const options = shuffleArray(shuffledScales.slice(0, 4));
+
+    setScalesState({
+      score: 0,
+      attempts: 0,
+      currentScale,
+      options,
+    });
+    setScalesAnswerState('default');
+    setActiveMode('scales');
+  };
+
+  // Scales Mode Answer
+  const handleScalesAnswer = async (scale: typeof SCALES[0]) => {
+    if (!scalesState || scalesAnswerState !== 'default') return;
+
+    const isCorrect = scale.name === scalesState.currentScale.name;
+    setScalesAnswerState(isCorrect ? 'correct' : 'incorrect');
+
+    if (isCorrect) {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+      await addXP(XP_PER_CORRECT);
+    } else {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
+    }
+
+    await recordAnswer(isCorrect, scalesState.currentScale.name, 'scale');
+
+    setTimeout(() => {
+      const shuffledScales = shuffleArray([...SCALES]);
+      const currentScale = shuffledScales[0];
+      const options = shuffleArray(shuffledScales.slice(0, 4));
+
+      setScalesState({
+        ...scalesState,
+        score: scalesState.score + (isCorrect ? 1 : 0),
+        attempts: scalesState.attempts + 1,
+        currentScale,
+        options,
+      });
+      setScalesAnswerState('default');
+    }, 500);
+  };
+
+  // Play Scale Sound
+  const playScaleSound = async () => {
+    if (scalesState) {
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+      // Play each note in the scale sequentially
+      const rootNote = 'C';
+      const rootIndex = ALL_NOTES.indexOf(rootNote);
+
+      for (const interval of scalesState.currentScale.intervals) {
+        const noteIndex = (rootIndex + interval) % 12;
+        const octave = 4 + Math.floor((rootIndex + interval) / 12);
+        await playNote(ALL_NOTES[noteIndex], octave, 0.25);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
   };
 
   // Play Sound for current mode
   const playSound = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
 
     if (activeMode === 'speed' && speedState) {
       await playNote(speedState.currentItem);
@@ -409,6 +499,7 @@ export default function GameModesScreen() {
                   else if (mode.id === 'survival') startSurvivalMode();
                   else if (mode.id === 'intervals') startIntervalsMode();
                   else if (mode.id === 'daily') startDailyChallenge();
+                  else if (mode.id === 'scales') startScalesMode();
                 }}
               >
                 <View style={[styles.modeIcon, { backgroundColor: mode.color + '30' }]}>
@@ -672,8 +763,98 @@ export default function GameModesScreen() {
     );
   }
 
+  // Render Scales Mode
+  if (activeMode === 'scales' && scalesState) {
+    const accuracy = scalesState.attempts > 0
+      ? Math.round((scalesState.score / scalesState.attempts) * 100)
+      : 0;
+
+    return (
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.gameContent}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setActiveMode(null)}
+              accessibilityLabel="Close scales mode"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Scales</Text>
+            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
+          </View>
+
+          <Text style={styles.scoreText}>
+            Score: {scalesState.score} / {scalesState.attempts}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={playScaleSound}
+            accessibilityLabel="Play scale"
+            accessibilityHint="Plays the scale notes in sequence"
+          >
+            <LinearGradient
+              colors={[COLORS.scales, COLORS.scales + 'CC']}
+              style={styles.playButtonGradient}
+            >
+              <Ionicons name="play" size={48} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.instruction}>Identify the scale</Text>
+
+          <View style={styles.intervalOptions}>
+            {scalesState.options.map((scale) => {
+              let buttonStyle = styles.intervalButton;
+              if (scalesAnswerState === 'correct' && scale.name === scalesState.currentScale.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (scalesAnswerState === 'incorrect' && scale.name === scalesState.currentScale.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={scale.name}
+                  style={buttonStyle}
+                  onPress={() => handleScalesAnswer(scale)}
+                  disabled={scalesAnswerState !== 'default'}
+                  accessibilityLabel={`${scale.name} scale`}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.intervalName}>{scale.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </LinearGradient>
+    );
+  }
+
   // Render Daily Challenge
   if (activeMode === 'daily') {
+    // Show "already completed today" message
+    if (dailyAlreadyDone && !dailyState && !dailyCompleted) {
+      return (
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+          <View style={styles.resultContainer}>
+            <Text style={styles.resultEmoji}>✅</Text>
+            <Text style={styles.resultTitle}>Already Completed!</Text>
+            <Text style={styles.resultScore}>Come back tomorrow for a new challenge</Text>
+            <Text style={styles.resultLevel}>You've already earned today's bonus XP</Text>
+            <Button
+              title="Back to Modes"
+              onPress={() => setActiveMode(null)}
+              variant="primary"
+              size="lg"
+              style={{ marginTop: SPACING.lg }}
+            />
+          </View>
+        </LinearGradient>
+      );
+    }
+
     if (dailyCompleted) {
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>

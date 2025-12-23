@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppProvider, useApp } from './src/context/AppContext';
 import Navigation from './src/navigation/Navigation';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import { COLORS } from './src/utils/theme';
 
 // Loading screen component
@@ -41,10 +42,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <AppProvider>
-          <StatusBar style="light" />
-          <AppContent />
-        </AppProvider>
+        <ErrorBoundary>
+          <AppProvider>
+            <StatusBar style="light" />
+            <AppContent />
+          </AppProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { COLORS, BORDER_RADIUS, SHADOWS, SPACING } from '../utils/theme';
 
@@ -7,13 +7,15 @@ interface GlassCardProps {
   style?: ViewStyle;
   variant?: 'default' | 'light' | 'dark' | 'success' | 'error';
   padding?: 'none' | 'sm' | 'md' | 'lg';
+  accessibilityLabel?: string;
 }
 
-export default function GlassCard({ 
-  children, 
-  style, 
+function GlassCard({
+  children,
+  style,
   variant = 'default',
-  padding = 'md' 
+  padding = 'md',
+  accessibilityLabel,
 }: GlassCardProps) {
   const variantStyles = {
     default: { backgroundColor: COLORS.glass },
@@ -31,9 +33,12 @@ export default function GlassCard({
   };
 
   return (
-    <View 
+    <View
+      accessible={!!accessibilityLabel}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityLabel ? 'summary' : undefined}
       style={[
-        styles.card, 
+        styles.card,
         variantStyles[variant],
         { padding: paddingStyles[padding] },
         SHADOWS.medium,
@@ -53,3 +58,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
+
+export default memo(GlassCard);

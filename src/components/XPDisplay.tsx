@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ interface XPDisplayProps {
   compact?: boolean;
 }
 
-export default function XPDisplay({ compact = false }: XPDisplayProps) {
+function XPDisplay({ compact = false }: XPDisplayProps) {
   const { levelInfo, stats } = useApp();
   const { level, currentXP, nextLevelXP } = levelInfo;
   const { title, color } = getLevelTitle(level);
@@ -175,3 +175,5 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.full,
   },
 });
+
+export default memo(XPDisplay);

@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   STATS: 'keyPerfect_stats',
   SETTINGS: 'keyPerfect_settings',
   DAILY_CHALLENGE: 'keyPerfect_dailyChallenge',
+  DAILY_COMPLETED_DATE: 'keyPerfect_dailyCompletedDate',
 };
 
 // Stats operations
@@ -287,6 +288,38 @@ export function generateInsights(stats: UserStats): string[] {
   }
   
   return insights;
+}
+
+// Daily challenge completion tracking
+export async function isDailyChallengeCompletedToday(): Promise<boolean> {
+  try {
+    const completedDate = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_COMPLETED_DATE);
+    if (!completedDate) return false;
+
+    const today = new Date().toISOString().split('T')[0];
+    return completedDate === today;
+  } catch (error) {
+    console.error('Error checking daily challenge status:', error);
+    return false;
+  }
+}
+
+export async function markDailyChallengeCompleted(): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_COMPLETED_DATE, today);
+  } catch (error) {
+    console.error('Error marking daily challenge completed:', error);
+  }
+}
+
+export async function getDailyChallengeCompletedDate(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.DAILY_COMPLETED_DATE);
+  } catch (error) {
+    console.error('Error getting daily challenge date:', error);
+    return null;
+  }
 }
 
 // Clear all data

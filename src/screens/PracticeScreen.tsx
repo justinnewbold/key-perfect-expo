@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
+import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
@@ -89,7 +89,7 @@ export default function PracticeScreen() {
 
   const playSound = async () => {
     if (!practiceState) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
 
     const item = practiceState.currentItem;
     // Check if it's a chord (contains space like "C Major") or a note
@@ -113,13 +113,13 @@ export default function PracticeScreen() {
     setAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
       Animated.sequence([
         Animated.timing(scaleAnim, { toValue: 1.1, duration: 100, useNativeDriver: true }),
         Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
       ]).start();
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
     // Record answer - detect type based on whether item contains a space (chords like "C Major")
