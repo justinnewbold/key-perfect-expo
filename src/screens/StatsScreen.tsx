@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,8 +7,11 @@ import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
+import ProgressChart from '../components/ProgressChart';
+import MasteryProgress from '../components/MasteryProgress';
 import { ACHIEVEMENTS } from '../types';
 import { detectWeakAreas, generateInsights } from '../utils/storage';
+import { getPracticeRecommendations, calculateMastery } from '../utils/spacedRepetition';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +25,42 @@ export default function StatsScreen() {
 
   const weakAreas = detectWeakAreas(stats);
   const insights = generateInsights(stats);
+  const recommendations = getPracticeRecommendations(stats);
+
+  // Calculate mastery levels for each category
+  const masteryCategories = useMemo(() => {
+    const noteMastery = calculateMastery(stats.noteAccuracy);
+    const chordMastery = calculateMastery(stats.chordAccuracy);
+    const intervalMastery = calculateMastery(stats.intervalAccuracy);
+    const scaleMastery = calculateMastery(stats.scaleAccuracy);
+
+    return [
+      { name: 'Notes', icon: 'musical-note', color: COLORS.info, ...noteMastery },
+      { name: 'Chords', icon: 'musical-notes', color: COLORS.success, ...chordMastery },
+      { name: 'Intervals', icon: 'git-compare', color: COLORS.intervals, ...intervalMastery },
+      { name: 'Scales', icon: 'analytics', color: COLORS.scales, ...scaleMastery },
+    ];
+  }, [stats.noteAccuracy, stats.chordAccuracy, stats.intervalAccuracy, stats.scaleAccuracy]);
+
+  // Get practice history for the last 7 days
+  const practiceHistory = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const today = new Date();
+    const history: { label: string; value: number }[] = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const practiced = stats.practiceDates.includes(dateStr);
+      history.push({
+        label: days[date.getDay()],
+        value: practiced ? 1 : 0,
+      });
+    }
+
+    return history;
+  }, [stats.practiceDates]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -63,6 +102,37 @@ export default function StatsScreen() {
 
         {/* XP Display */}
         <XPDisplay />
+
+        {/* Practice History */}
+        <GlassCard style={styles.section}>
+          <Text style={styles.sectionTitle}>📅 Practice History</Text>
+          <ProgressChart
+            data={practiceHistory}
+            maxValue={1}
+            height={80}
+            color={COLORS.success}
+          />
+        </GlassCard>
+
+        {/* Mastery Progress */}
+        <GlassCard style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="school" size={20} color={COLORS.xpGradientStart} />
+            <Text style={styles.sectionTitle}>Mastery Progress</Text>
+          </View>
+          <MasteryProgress categories={masteryCategories} />
+        </GlassCard>
+
+        {/* Practice Recommendations */}
+        {recommendations.focusArea && (
+          <GlassCard style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="fitness" size={20} color={COLORS.success} />
+              <Text style={styles.sectionTitle}>Today's Focus</Text>
+            </View>
+            <Text style={styles.recommendationText}>{recommendations.message}</Text>
+          </GlassCard>
+        )}
 
         {/* Main Stats */}
         <View style={styles.statsGrid}>
@@ -451,5 +521,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: SPACING.xs,
     textAlign: 'center',
+  },
+  recommendationText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
   },
 });

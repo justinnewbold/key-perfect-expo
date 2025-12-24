@@ -19,8 +19,12 @@ import {
   GAME_MODES,
   ALL_NOTES,
   MAJOR_CHORDS,
+  MINOR_CHORDS,
   INTERVALS,
   SCALES,
+  PROGRESSIONS,
+  CHORD_INTERVALS,
+  ChordType,
   XP_PER_CORRECT,
   DAILY_CHALLENGE_BONUS,
 } from '../types';
@@ -30,7 +34,7 @@ import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../
 
 const { width } = Dimensions.get('window');
 
-type ActiveMode = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | null;
+type ActiveMode = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | 'progressions' | 'inversions' | 'reverse' | null;
 
 interface SpeedGameState {
   score: number;
@@ -69,6 +73,29 @@ interface ScalesGameState {
   options: typeof SCALES;
 }
 
+interface ProgressionsGameState {
+  score: number;
+  attempts: number;
+  currentProgression: typeof PROGRESSIONS[0];
+  options: typeof PROGRESSIONS;
+}
+
+interface InversionsGameState {
+  score: number;
+  attempts: number;
+  currentChord: string;
+  currentInversion: 'root' | 'first' | 'second';
+  options: ('root' | 'first' | 'second')[];
+}
+
+interface ReverseGameState {
+  score: number;
+  attempts: number;
+  targetItem: string;
+  hasPlayed: boolean;
+  isCorrect: boolean | null;
+}
+
 export default function GameModesScreen() {
   const navigation = useNavigation<any>();
   const { recordAnswer, addXP, updateStats, stats, settings, playNote, playChord } = useApp();
@@ -97,6 +124,18 @@ export default function GameModesScreen() {
   // Scales Mode
   const [scalesState, setScalesState] = useState<ScalesGameState | null>(null);
   const [scalesAnswerState, setScalesAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
+
+  // Progressions Mode
+  const [progressionsState, setProgressionsState] = useState<ProgressionsGameState | null>(null);
+  const [progressionsAnswerState, setProgressionsAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
+
+  // Inversions Mode
+  const [inversionsState, setInversionsState] = useState<InversionsGameState | null>(null);
+  const [inversionsAnswerState, setInversionsAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
+
+  // Reverse Mode
+  const [reverseState, setReverseState] = useState<ReverseGameState | null>(null);
+  const [reverseAnswerState, setReverseAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -445,6 +484,234 @@ export default function GameModesScreen() {
     }
   };
 
+  // Start Progressions Mode
+  const startProgressionsMode = () => {
+    const shuffledProgressions = shuffleArray([...PROGRESSIONS]);
+    const currentProgression = shuffledProgressions[0];
+    const options = shuffleArray(shuffledProgressions.slice(0, 4));
+
+    setProgressionsState({
+      score: 0,
+      attempts: 0,
+      currentProgression,
+      options,
+    });
+    setProgressionsAnswerState('default');
+    setActiveMode('progressions');
+  };
+
+  // Play Progression Sound
+  const playProgressionSound = async () => {
+    if (progressionsState) {
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+      // Map roman numerals to chords in C major
+      const numeralToChord: Record<string, { root: string; type: ChordType }> = {
+        'I': { root: 'C', type: 'major' },
+        'ii': { root: 'D', type: 'minor' },
+        'iii': { root: 'E', type: 'minor' },
+        'IV': { root: 'F', type: 'major' },
+        'V': { root: 'G', type: 'major' },
+        'vi': { root: 'A', type: 'minor' },
+        'vii': { root: 'B', type: 'diminished' },
+      };
+
+      const numerals = progressionsState.currentProgression.numerals.split('-');
+      for (const numeral of numerals) {
+        const chord = numeralToChord[numeral];
+        if (chord) {
+          await playChord(chord.root, chord.type);
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+    }
+  };
+
+  // Progressions Mode Answer
+  const handleProgressionsAnswer = async (progression: typeof PROGRESSIONS[0]) => {
+    if (!progressionsState || progressionsAnswerState !== 'default') return;
+
+    const isCorrect = progression.name === progressionsState.currentProgression.name;
+    setProgressionsAnswerState(isCorrect ? 'correct' : 'incorrect');
+
+    if (isCorrect) {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+      await addXP(XP_PER_CORRECT * 2); // Higher XP for progressions
+    } else {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
+    }
+
+    await recordAnswer(isCorrect, progressionsState.currentProgression.name, 'chord');
+
+    setTimeout(() => {
+      const shuffledProgressions = shuffleArray([...PROGRESSIONS]);
+      const currentProgression = shuffledProgressions[0];
+      const options = shuffleArray(shuffledProgressions.slice(0, 4));
+
+      setProgressionsState({
+        ...progressionsState,
+        score: progressionsState.score + (isCorrect ? 1 : 0),
+        attempts: progressionsState.attempts + 1,
+        currentProgression,
+        options,
+      });
+      setProgressionsAnswerState('default');
+    }, 500);
+  };
+
+  // Start Inversions Mode
+  const startInversionsMode = () => {
+    const chords = [...MAJOR_CHORDS, ...MINOR_CHORDS.slice(0, 4)];
+    const currentChord = chords[Math.floor(Math.random() * chords.length)];
+    const inversions: ('root' | 'first' | 'second')[] = ['root', 'first', 'second'];
+    const currentInversion = inversions[Math.floor(Math.random() * inversions.length)];
+
+    setInversionsState({
+      score: 0,
+      attempts: 0,
+      currentChord,
+      currentInversion,
+      options: shuffleArray([...inversions]),
+    });
+    setInversionsAnswerState('default');
+    setActiveMode('inversions');
+  };
+
+  // Play Inversion Sound
+  const playInversionSound = async () => {
+    if (inversionsState) {
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+      const parts = inversionsState.currentChord.split(' ');
+      const root = parts[0];
+      const typeStr = parts.slice(1).join(' ').toLowerCase();
+      const type: ChordType = typeStr.includes('minor') ? 'minor' : 'major';
+
+      const intervals = CHORD_INTERVALS[type];
+      const rootIndex = ALL_NOTES.indexOf(root);
+      let octave = 4;
+
+      // Adjust intervals based on inversion
+      let playIntervals: number[] = [...intervals];
+      if (inversionsState.currentInversion === 'first') {
+        // First inversion: move root up an octave
+        playIntervals = [playIntervals[1], playIntervals[2], playIntervals[0] + 12];
+      } else if (inversionsState.currentInversion === 'second') {
+        // Second inversion: move root and third up an octave
+        playIntervals = [playIntervals[2], playIntervals[0] + 12, playIntervals[1] + 12];
+      }
+
+      // Play the chord with inversion
+      for (const interval of playIntervals) {
+        const noteIndex = (rootIndex + interval) % 12;
+        const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
+        await playNote(ALL_NOTES[noteIndex], noteOctave, 0.5);
+      }
+    }
+  };
+
+  // Inversions Mode Answer
+  const handleInversionsAnswer = async (inversion: 'root' | 'first' | 'second') => {
+    if (!inversionsState || inversionsAnswerState !== 'default') return;
+
+    const isCorrect = inversion === inversionsState.currentInversion;
+    setInversionsAnswerState(isCorrect ? 'correct' : 'incorrect');
+
+    if (isCorrect) {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+      await addXP(XP_PER_CORRECT * 1.5);
+    } else {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
+    }
+
+    await recordAnswer(isCorrect, `${inversionsState.currentChord} ${inversionsState.currentInversion}`, 'chord');
+
+    setTimeout(() => {
+      const chords = [...MAJOR_CHORDS, ...MINOR_CHORDS.slice(0, 4)];
+      const currentChord = chords[Math.floor(Math.random() * chords.length)];
+      const inversions: ('root' | 'first' | 'second')[] = ['root', 'first', 'second'];
+      const currentInversion = inversions[Math.floor(Math.random() * inversions.length)];
+
+      setInversionsState({
+        ...inversionsState,
+        score: inversionsState.score + (isCorrect ? 1 : 0),
+        attempts: inversionsState.attempts + 1,
+        currentChord,
+        currentInversion,
+        options: shuffleArray([...inversions]),
+      });
+      setInversionsAnswerState('default');
+    }, 500);
+  };
+
+  // Start Reverse Mode
+  const startReverseMode = () => {
+    const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
+    const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+
+    setReverseState({
+      score: 0,
+      attempts: 0,
+      targetItem,
+      hasPlayed: false,
+      isCorrect: null,
+    });
+    setReverseAnswerState('default');
+    setActiveMode('reverse');
+  };
+
+  // Play the target in Reverse Mode
+  const playReverseTarget = async () => {
+    if (reverseState) {
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+      const item = reverseState.targetItem;
+
+      if (item.includes(' ')) {
+        // It's a chord
+        const parts = item.split(' ');
+        const root = parts[0];
+        const type = parts.slice(1).join(' ').toLowerCase();
+        await playChord(root, type);
+      } else {
+        await playNote(item);
+      }
+
+      setReverseState(prev => prev ? { ...prev, hasPlayed: true } : prev);
+    }
+  };
+
+  // Handle Reverse Mode confirmation
+  const handleReverseConfirm = async () => {
+    if (!reverseState || reverseAnswerState !== 'default') return;
+
+    // Compare what user played with target
+    const isCorrect = reverseState.hasPlayed;
+    setReverseAnswerState(isCorrect ? 'correct' : 'incorrect');
+
+    if (isCorrect) {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+      await addXP(XP_PER_CORRECT);
+    } else {
+      safeHaptics.notificationAsync(NotificationFeedbackType.Error);
+    }
+
+    const type = reverseState.targetItem.includes(' ') ? 'chord' : 'note';
+    await recordAnswer(isCorrect, reverseState.targetItem, type);
+
+    setTimeout(() => {
+      const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
+      const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+
+      setReverseState({
+        ...reverseState,
+        score: reverseState.score + (isCorrect ? 1 : 0),
+        attempts: reverseState.attempts + 1,
+        targetItem,
+        hasPlayed: false,
+        isCorrect: null,
+      });
+      setReverseAnswerState('default');
+    }, 500);
+  };
+
   // Play Sound for current mode
   const playSound = async () => {
     safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
@@ -500,6 +767,9 @@ export default function GameModesScreen() {
                   else if (mode.id === 'intervals') startIntervalsMode();
                   else if (mode.id === 'daily') startDailyChallenge();
                   else if (mode.id === 'scales') startScalesMode();
+                  else if (mode.id === 'progressions') startProgressionsMode();
+                  else if (mode.id === 'inversions') startInversionsMode();
+                  else if (mode.id === 'reverse') startReverseMode();
                 }}
               >
                 <View style={[styles.modeIcon, { backgroundColor: mode.color + '30' }]}>
@@ -936,6 +1206,216 @@ export default function GameModesScreen() {
     }
   }
 
+  // Render Progressions Mode
+  if (activeMode === 'progressions' && progressionsState) {
+    const accuracy = progressionsState.attempts > 0
+      ? Math.round((progressionsState.score / progressionsState.attempts) * 100)
+      : 0;
+
+    return (
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.gameContent}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setActiveMode(null)}
+              accessibilityLabel="Close progressions mode"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Progressions</Text>
+            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
+          </View>
+
+          <Text style={styles.scoreText}>
+            Score: {progressionsState.score} / {progressionsState.attempts}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={playProgressionSound}
+            accessibilityLabel="Play chord progression"
+            accessibilityHint="Plays the chord progression to identify"
+          >
+            <LinearGradient
+              colors={[COLORS.progressions, COLORS.progressions + 'CC']}
+              style={styles.playButtonGradient}
+            >
+              <Ionicons name="play" size={48} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.instruction}>Identify the chord progression</Text>
+
+          <View style={styles.intervalOptions}>
+            {progressionsState.options.map((progression) => {
+              let buttonStyle = styles.intervalButton;
+              if (progressionsAnswerState === 'correct' && progression.name === progressionsState.currentProgression.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (progressionsAnswerState === 'incorrect' && progression.name === progressionsState.currentProgression.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={progression.name}
+                  style={buttonStyle}
+                  onPress={() => handleProgressionsAnswer(progression)}
+                  disabled={progressionsAnswerState !== 'default'}
+                  accessibilityLabel={`${progression.name} progression`}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.intervalName}>{progression.numerals}</Text>
+                  <Text style={styles.intervalHint}>{progression.description}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  // Render Inversions Mode
+  if (activeMode === 'inversions' && inversionsState) {
+    const accuracy = inversionsState.attempts > 0
+      ? Math.round((inversionsState.score / inversionsState.attempts) * 100)
+      : 0;
+
+    const inversionLabels = {
+      root: 'Root Position',
+      first: '1st Inversion',
+      second: '2nd Inversion',
+    };
+
+    return (
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.gameContent}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setActiveMode(null)}
+              accessibilityLabel="Close inversions mode"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Inversions</Text>
+            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
+          </View>
+
+          <Text style={styles.scoreText}>
+            Score: {inversionsState.score} / {inversionsState.attempts}
+          </Text>
+
+          <Text style={styles.chordLabel}>{inversionsState.currentChord}</Text>
+
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={playInversionSound}
+            accessibilityLabel="Play chord inversion"
+            accessibilityHint="Plays the chord inversion to identify"
+          >
+            <LinearGradient
+              colors={[COLORS.inversions, COLORS.inversions + 'CC']}
+              style={styles.playButtonGradient}
+            >
+              <Ionicons name="play" size={48} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.instruction}>Which inversion is this?</Text>
+
+          <View style={styles.intervalOptions}>
+            {inversionsState.options.map((inversion) => {
+              let buttonStyle = styles.intervalButton;
+              if (inversionsAnswerState === 'correct' && inversion === inversionsState.currentInversion) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (inversionsAnswerState === 'incorrect' && inversion === inversionsState.currentInversion) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={inversion}
+                  style={buttonStyle}
+                  onPress={() => handleInversionsAnswer(inversion)}
+                  disabled={inversionsAnswerState !== 'default'}
+                  accessibilityLabel={inversionLabels[inversion]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.intervalName}>{inversionLabels[inversion]}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  // Render Reverse Mode
+  if (activeMode === 'reverse' && reverseState) {
+    const accuracy = reverseState.attempts > 0
+      ? Math.round((reverseState.score / reverseState.attempts) * 100)
+      : 0;
+
+    return (
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.gameContent}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setActiveMode(null)}
+              accessibilityLabel="Close reverse mode"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Reverse Mode</Text>
+            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
+          </View>
+
+          <Text style={styles.scoreText}>
+            Score: {reverseState.score} / {reverseState.attempts}
+          </Text>
+
+          <GlassCard style={styles.targetCard}>
+            <Text style={styles.targetLabel}>Play this sound:</Text>
+            <Text style={styles.targetItem}>{reverseState.targetItem}</Text>
+          </GlassCard>
+
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={playReverseTarget}
+            accessibilityLabel="Play target sound"
+            accessibilityHint="Plays the target sound you need to match"
+          >
+            <LinearGradient
+              colors={[COLORS.reverseMode, COLORS.reverseMode + 'CC']}
+              style={styles.playButtonGradient}
+            >
+              <Ionicons name="musical-notes" size={48} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.instruction}>
+            {reverseState.hasPlayed
+              ? 'Sound played! Press confirm to continue.'
+              : 'Press above to hear the sound, then confirm.'}
+          </Text>
+
+          <Button
+            title={reverseState.hasPlayed ? 'Confirm & Next' : 'Play First'}
+            onPress={handleReverseConfirm}
+            variant={reverseState.hasPlayed ? 'success' : 'secondary'}
+            size="lg"
+            disabled={!reverseState.hasPlayed || reverseAnswerState !== 'default'}
+            style={{ marginTop: SPACING.lg }}
+          />
+        </View>
+      </LinearGradient>
+    );
+  }
+
   return null;
 }
 
@@ -1172,5 +1652,26 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: SPACING.md,
+  },
+  chordLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  targetCard: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  targetLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    marginBottom: SPACING.xs,
+  },
+  targetItem: {
+    color: COLORS.textPrimary,
+    fontSize: 32,
+    fontWeight: 'bold',
   },
 });

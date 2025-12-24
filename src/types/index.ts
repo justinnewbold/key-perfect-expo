@@ -386,6 +386,9 @@ export const DEFAULT_STATS: UserStats = {
   survivalModeHighScore: 0,
 };
 
+// Theme type
+export type ThemeId = 'purple' | 'ocean' | 'sunset' | 'forest' | 'midnight';
+
 // Settings interface
 export interface UserSettings {
   volume: number;
@@ -396,6 +399,7 @@ export interface UserSettings {
   autoPlay: boolean;
   showHints: boolean;
   hapticFeedback: boolean;
+  theme: ThemeId;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -407,4 +411,5 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoPlay: true,
   showHints: true,
   hapticFeedback: true,
+  theme: 'purple',
 };

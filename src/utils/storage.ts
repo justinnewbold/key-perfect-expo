@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'keyPerfect_settings',
   DAILY_CHALLENGE: 'keyPerfect_dailyChallenge',
   DAILY_COMPLETED_DATE: 'keyPerfect_dailyCompletedDate',
+  ONBOARDING_COMPLETED: 'keyPerfect_onboardingCompleted',
 };
 
 // Stats operations
@@ -319,6 +320,25 @@ export async function getDailyChallengeCompletedDate(): Promise<string | null> {
   } catch (error) {
     console.error('Error getting daily challenge date:', error);
     return null;
+  }
+}
+
+// Onboarding operations
+export async function isOnboardingCompleted(): Promise<boolean> {
+  try {
+    const completed = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+    return completed === 'true';
+  } catch (error) {
+    console.error('Error checking onboarding status:', error);
+    return false;
+  }
+}
+
+export async function markOnboardingCompleted(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+  } catch (error) {
+    console.error('Error marking onboarding completed:', error);
   }
 }
 
