@@ -261,15 +261,20 @@ export function calculateXPForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
 }
 
-export function getLevelFromXP(totalXP: number): number {
+export function getLevelFromXP(totalXP: number): { level: number; currentXP: number; nextLevelXP: number } {
   let level = 1;
+  let remainingXP = totalXP;
   let xpNeeded = calculateXPForLevel(level);
-  while (totalXP >= xpNeeded) {
-    totalXP -= xpNeeded;
+  while (remainingXP >= xpNeeded) {
+    remainingXP -= xpNeeded;
     level++;
     xpNeeded = calculateXPForLevel(level);
   }
-  return level;
+  return {
+    level,
+    currentXP: remainingXP,
+    nextLevelXP: xpNeeded,
+  };
 }
 
 export function getLevelTitle(level: number): string {
@@ -381,6 +386,9 @@ export const DEFAULT_STATS: UserStats = {
   survivalModeHighScore: 0,
 };
 
+// Theme type
+export type ThemeId = 'purple' | 'ocean' | 'sunset' | 'forest' | 'midnight';
+
 // Settings interface
 export interface UserSettings {
   volume: number;
@@ -391,6 +399,7 @@ export interface UserSettings {
   autoPlay: boolean;
   showHints: boolean;
   hapticFeedback: boolean;
+  theme: ThemeId;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -402,4 +411,5 @@ export const DEFAULT_SETTINGS: UserSettings = {
   autoPlay: true,
   showHints: true,
   hapticFeedback: true,
+  theme: 'purple',
 };

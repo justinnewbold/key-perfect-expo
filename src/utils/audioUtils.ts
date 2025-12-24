@@ -1,24 +1,46 @@
+import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
 import { Instrument, NOTE_FREQUENCIES, ALL_NOTES, CHORD_INTERVALS, ChordType } from '../types';
 
-// Audio context simulation for React Native
-// We'll use oscillator-like synthesis by generating audio data
+// Audio context for Web Audio API
+let audioContext: AudioContext | null = null;
+
+// Get or create AudioContext (web only)
+function getAudioContext(): AudioContext | null {
+  if (Platform.OS === 'web') {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    // Resume if suspended (browsers require user interaction)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return audioContext;
+  }
+  return null;
+}
 
 class AudioEngine {
-  private sound: Audio.Sound | null = null;
   private volume: number = 0.8;
   private currentInstrument: Instrument = 'piano';
+  private isInitialized: boolean = false;
+  private isPlaying: boolean = false;
 
   constructor() {
     this.initAudio();
   }
 
   private async initAudio() {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-    });
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+      this.isInitialized = true;
+    } catch (error) {
+      console.log('Audio init error:', error);
+    }
   }
 
   setVolume(vol: number) {
@@ -29,36 +51,157 @@ class AudioEngine {
     this.currentInstrument = instrument;
   }
 
-  // Generate a simple sine wave tone as base64 audio
-  private generateTone(frequency: number, duration: number = 1, type: 'sine' | 'square' | 'triangle' = 'sine'): number[] {
+  getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  // Get frequency for a note at a given octave
+  getNoteFrequency(note: string, octave: number = 4): number {
+    const noteIndex = ALL_NOTES.indexOf(note);
+    if (noteIndex === -1) return 440;
+    const baseFreq = NOTE_FREQUENCIES[note];
+    return baseFreq * Math.pow(2, octave - 4);
+  }
+
+  // Get instrument characteristics for synthesis
+  private getInstrumentSettings(instrument: Instrument) {
+    const settings: Record<Instrument, {
+      waveform: OscillatorType;
+      attack: number;
+      decay: number;
+      sustain: number;
+      release: number;
+      harmonics: number[];
+    }> = {
+      piano: { waveform: 'triangle', attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.5, harmonics: [1, 0.5, 0.25, 0.125] },
+      guitar: { waveform: 'sawtooth', attack: 0.005, decay: 0.2, sustain: 0.3, release: 0.3, harmonics: [1, 0.8, 0.4] },
+      strings: { waveform: 'sine', attack: 0.2, decay: 0.1, sustain: 0.8, release: 0.4, harmonics: [1, 0.3, 0.2] },
+      synth: { waveform: 'square', attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.3, harmonics: [1, 0.5] },
+      organ: { waveform: 'sine', attack: 0.02, decay: 0.05, sustain: 0.9, release: 0.1, harmonics: [1, 1, 0.5, 0.5, 0.3] },
+      bass: { waveform: 'sine', attack: 0.02, decay: 0.3, sustain: 0.4, release: 0.2, harmonics: [1, 0.7] },
+      drums: { waveform: 'square', attack: 0.001, decay: 0.1, sustain: 0, release: 0.1, harmonics: [1] },
+      brass: { waveform: 'sawtooth', attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.2, harmonics: [1, 0.6, 0.4, 0.3] },
+      woodwind: { waveform: 'sine', attack: 0.1, decay: 0.1, sustain: 0.7, release: 0.3, harmonics: [1, 0.4, 0.2] },
+      vocals: { waveform: 'sine', attack: 0.15, decay: 0.1, sustain: 0.75, release: 0.35, harmonics: [1, 0.3, 0.15] },
+    };
+    return settings[instrument];
+  }
+
+  // Play a note using Web Audio API (works on web)
+  private playNoteWeb(frequency: number, duration: number = 1): void {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const settings = this.getInstrumentSettings(this.currentInstrument);
+    const now = ctx.currentTime;
+
+    // Create master gain
+    const masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+    masterGain.gain.value = this.volume * 0.3;
+
+    // Create oscillators for each harmonic
+    settings.harmonics.forEach((harmonic, index) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = settings.waveform;
+      osc.frequency.value = frequency * (index + 1);
+
+      gain.connect(masterGain);
+      osc.connect(gain);
+
+      // ADSR envelope
+      const attackEnd = now + settings.attack;
+      const decayEnd = attackEnd + settings.decay;
+      const releaseStart = now + duration - settings.release;
+      const releaseEnd = now + duration;
+
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(harmonic * this.volume, attackEnd);
+      gain.gain.linearRampToValueAtTime(harmonic * settings.sustain * this.volume, decayEnd);
+      gain.gain.setValueAtTime(harmonic * settings.sustain * this.volume, releaseStart);
+      gain.gain.linearRampToValueAtTime(0, releaseEnd);
+
+      osc.start(now);
+      osc.stop(releaseEnd);
+    });
+  }
+
+  // Generate WAV data for a note (for native platforms)
+  private generateWavData(frequency: number, duration: number = 1): ArrayBuffer {
     const sampleRate = 44100;
     const numSamples = Math.floor(sampleRate * duration);
-    const samples: number[] = [];
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+
+    // WAV header + data
+    const dataSize = numSamples * numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Generate audio samples
+    const settings = this.getInstrumentSettings(this.currentInstrument);
 
     for (let i = 0; i < numSamples; i++) {
       const t = i / sampleRate;
       let sample = 0;
 
-      // Generate waveform based on type
-      switch (type) {
-        case 'sine':
-          sample = Math.sin(2 * Math.PI * frequency * t);
-          break;
-        case 'square':
-          sample = Math.sign(Math.sin(2 * Math.PI * frequency * t));
-          break;
-        case 'triangle':
-          sample = 2 * Math.abs(2 * (t * frequency - Math.floor(t * frequency + 0.5))) - 1;
-          break;
-      }
+      // Generate waveform with harmonics
+      settings.harmonics.forEach((harmonic, index) => {
+        const freq = frequency * (index + 1);
+        let wave = 0;
+
+        switch (settings.waveform) {
+          case 'sine':
+            wave = Math.sin(2 * Math.PI * freq * t);
+            break;
+          case 'square':
+            wave = Math.sign(Math.sin(2 * Math.PI * freq * t));
+            break;
+          case 'sawtooth':
+            wave = 2 * ((freq * t) % 1) - 1;
+            break;
+          case 'triangle':
+            wave = 4 * Math.abs(((freq * t) % 1) - 0.5) - 1;
+            break;
+        }
+
+        sample += wave * harmonic;
+      });
+
+      // Normalize by number of harmonics
+      sample /= settings.harmonics.length;
 
       // Apply ADSR envelope
-      const attackTime = 0.05;
-      const decayTime = 0.1;
-      const sustainLevel = 0.7;
-      const releaseTime = 0.3;
-
       let envelope = 1;
+      const attackTime = settings.attack;
+      const decayTime = settings.decay;
+      const sustainLevel = settings.sustain;
+      const releaseTime = settings.release;
+
       if (t < attackTime) {
         envelope = t / attackTime;
       } else if (t < attackTime + decayTime) {
@@ -69,118 +212,215 @@ class AudioEngine {
         envelope = sustainLevel * (1 - (t - (duration - releaseTime)) / releaseTime);
       }
 
-      samples.push(sample * envelope * this.volume);
+      sample *= envelope * this.volume;
+
+      // Clamp and convert to 16-bit
+      sample = Math.max(-1, Math.min(1, sample));
+      const intSample = Math.floor(sample * 32767);
+      view.setInt16(44 + i * 2, intSample, true);
     }
 
-    return samples;
+    return buffer;
   }
 
-  // Convert frequency to note name
-  frequencyToNote(frequency: number): string {
-    const noteNum = 12 * (Math.log2(frequency / 440));
-    const note = Math.round(noteNum) + 69;
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    return noteNames[note % 12];
-  }
-
-  // Get frequency for a note
-  getNoteFrequency(note: string, octave: number = 4): number {
-    const noteIndex = ALL_NOTES.indexOf(note);
-    if (noteIndex === -1) return 440;
-    const baseFreq = NOTE_FREQUENCIES[note];
-    return baseFreq * Math.pow(2, octave - 4);
-  }
-
-  // Get instrument characteristics
-  private getInstrumentSettings(instrument: Instrument) {
-    const settings = {
-      piano: { waveform: 'sine' as const, harmonics: [1, 0.5, 0.3, 0.2, 0.1, 0.05], attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.5 },
-      guitar: { waveform: 'triangle' as const, harmonics: [1, 0.8, 0.6, 0.3, 0.1], attack: 0.005, decay: 0.1, sustain: 0.4, release: 0.3 },
-      strings: { waveform: 'sine' as const, harmonics: [1, 0.3, 0.2, 0.1], attack: 0.2, decay: 0.1, sustain: 0.8, release: 0.4 },
-      synth: { waveform: 'square' as const, harmonics: [1, 0.5, 0.25], attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.3 },
-      organ: { waveform: 'sine' as const, harmonics: [1, 1, 0.5, 0.5, 0.3, 0.3], attack: 0.02, decay: 0.05, sustain: 0.9, release: 0.1 },
-      bass: { waveform: 'sine' as const, harmonics: [1, 0.7, 0.3], attack: 0.02, decay: 0.3, sustain: 0.4, release: 0.2 },
-      drums: { waveform: 'square' as const, harmonics: [1, 0.5], attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
-      brass: { waveform: 'triangle' as const, harmonics: [1, 0.6, 0.4, 0.3, 0.2, 0.1], attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.2 },
-      woodwind: { waveform: 'sine' as const, harmonics: [1, 0.4, 0.2, 0.1, 0.05], attack: 0.1, decay: 0.1, sustain: 0.7, release: 0.3 },
-      vocals: { waveform: 'sine' as const, harmonics: [1, 0.3, 0.15, 0.1, 0.05], attack: 0.15, decay: 0.1, sustain: 0.75, release: 0.35 },
-    };
-    return settings[instrument];
-  }
-
-  // Simple beep for feedback
-  async playBeep(success: boolean = true) {
-    try {
-      // Use a simple approach - just play a quick tone
-      const frequency = success ? 880 : 220;
-      // For simplicity, we'll rely on haptic feedback instead of audio beeps
-    } catch (error) {
-      console.log('Error playing beep:', error);
+  // Convert ArrayBuffer to base64
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
+    return btoa(binary);
   }
 
-  // Play a single note - simplified for React Native
+  // Play a single note
   async playNote(note: string, octave: number = 4, duration: number = 1): Promise<void> {
+    if (this.isPlaying) return;
+
+    this.isPlaying = true;
     const frequency = this.getNoteFrequency(note, octave);
-    console.log(`Playing note: ${note}${octave} at ${frequency}Hz`);
-    
-    // In a real implementation, you would use expo-av with pre-recorded samples
-    // or a native audio synthesis library
-    // For now, we'll just log the action
-    
-    return new Promise((resolve) => {
-      setTimeout(resolve, duration * 1000);
-    });
+
+    try {
+      if (Platform.OS === 'web') {
+        this.playNoteWeb(frequency, duration);
+        await new Promise(resolve => setTimeout(resolve, duration * 1000));
+      } else {
+        // Native platforms: use expo-av with generated WAV
+        const wavData = this.generateWavData(frequency, duration);
+        const base64 = this.arrayBufferToBase64(wavData);
+        const uri = `data:audio/wav;base64,${base64}`;
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri },
+          { volume: this.volume }
+        );
+        await sound.playAsync();
+
+        // Wait for playback to complete
+        await new Promise(resolve => setTimeout(resolve, duration * 1000));
+        await sound.unloadAsync();
+      }
+    } catch (error) {
+      console.log('Error playing note:', error);
+    } finally {
+      this.isPlaying = false;
+    }
   }
 
-  // Play a chord
+  // Play a chord (multiple notes simultaneously)
   async playChord(root: string, type: ChordType, octave: number = 4, duration: number = 1.5): Promise<void> {
+    if (this.isPlaying) return;
+
+    this.isPlaying = true;
     const intervals = CHORD_INTERVALS[type] || [0, 4, 7];
     const rootIndex = ALL_NOTES.indexOf(root);
-    
-    console.log(`Playing ${root} ${type} chord`);
-    
-    // Get all notes in the chord
-    const notes = intervals.map(interval => {
-      const noteIndex = (rootIndex + interval) % 12;
-      const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
-      return { note: ALL_NOTES[noteIndex], octave: noteOctave };
-    });
 
-    // Play all notes simultaneously (in a real implementation)
-    notes.forEach(({ note }) => {
-      console.log(`  - ${note}`);
-    });
+    try {
+      if (Platform.OS === 'web') {
+        // Play all notes simultaneously on web
+        intervals.forEach(interval => {
+          const noteIndex = (rootIndex + interval) % 12;
+          const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
+          const frequency = this.getNoteFrequency(ALL_NOTES[noteIndex], noteOctave);
+          this.playNoteWeb(frequency, duration);
+        });
+        await new Promise(resolve => setTimeout(resolve, duration * 1000));
+      } else {
+        // For native, generate a combined chord WAV
+        const frequencies = intervals.map(interval => {
+          const noteIndex = (rootIndex + interval) % 12;
+          const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
+          return this.getNoteFrequency(ALL_NOTES[noteIndex], noteOctave);
+        });
 
-    return new Promise((resolve) => {
-      setTimeout(resolve, duration * 1000);
-    });
+        const wavData = this.generateChordWavData(frequencies, duration);
+        const base64 = this.arrayBufferToBase64(wavData);
+        const uri = `data:audio/wav;base64,${base64}`;
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri },
+          { volume: this.volume }
+        );
+        await sound.playAsync();
+        await new Promise(resolve => setTimeout(resolve, duration * 1000));
+        await sound.unloadAsync();
+      }
+    } catch (error) {
+      console.log('Error playing chord:', error);
+    } finally {
+      this.isPlaying = false;
+    }
   }
 
-  // Play an interval
+  // Generate WAV data for a chord (multiple frequencies)
+  private generateChordWavData(frequencies: number[], duration: number = 1.5): ArrayBuffer {
+    const sampleRate = 44100;
+    const numSamples = Math.floor(sampleRate * duration);
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+
+    const dataSize = numSamples * numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    const settings = this.getInstrumentSettings(this.currentInstrument);
+
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      let sample = 0;
+
+      // Add each frequency in the chord
+      frequencies.forEach(frequency => {
+        settings.harmonics.forEach((harmonic, index) => {
+          const freq = frequency * (index + 1);
+          let wave = 0;
+
+          switch (settings.waveform) {
+            case 'sine':
+              wave = Math.sin(2 * Math.PI * freq * t);
+              break;
+            case 'square':
+              wave = Math.sign(Math.sin(2 * Math.PI * freq * t));
+              break;
+            case 'sawtooth':
+              wave = 2 * ((freq * t) % 1) - 1;
+              break;
+            case 'triangle':
+              wave = 4 * Math.abs(((freq * t) % 1) - 0.5) - 1;
+              break;
+          }
+
+          sample += wave * harmonic;
+        });
+      });
+
+      // Normalize
+      sample /= (frequencies.length * settings.harmonics.length);
+
+      // ADSR envelope
+      let envelope = 1;
+      if (t < settings.attack) {
+        envelope = t / settings.attack;
+      } else if (t < settings.attack + settings.decay) {
+        envelope = 1 - (1 - settings.sustain) * ((t - settings.attack) / settings.decay);
+      } else if (t < duration - settings.release) {
+        envelope = settings.sustain;
+      } else {
+        envelope = settings.sustain * (1 - (t - (duration - settings.release)) / settings.release);
+      }
+
+      sample *= envelope * this.volume;
+      sample = Math.max(-1, Math.min(1, sample));
+      const intSample = Math.floor(sample * 32767);
+      view.setInt16(44 + i * 2, intSample, true);
+    }
+
+    return buffer;
+  }
+
+  // Play an interval (two notes sequentially)
   async playInterval(rootNote: string, semitones: number, octave: number = 4): Promise<void> {
     const rootIndex = ALL_NOTES.indexOf(rootNote);
     const secondNoteIndex = (rootIndex + semitones) % 12;
     const secondNote = ALL_NOTES[secondNoteIndex];
     const secondOctave = octave + Math.floor((rootIndex + semitones) / 12);
 
-    console.log(`Playing interval: ${rootNote}${octave} - ${secondNote}${secondOctave}`);
-
-    // Play root note
     await this.playNote(rootNote, octave, 0.5);
-    
-    // Play second note
+    await new Promise(resolve => setTimeout(resolve, 100));
     await this.playNote(secondNote, secondOctave, 0.5);
   }
 
   // Play a scale
   async playScale(root: string, intervals: number[], octave: number = 4): Promise<void> {
     const rootIndex = ALL_NOTES.indexOf(root);
-    
+
     for (const interval of intervals) {
       const noteIndex = (rootIndex + interval) % 12;
       const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
-      await this.playNote(ALL_NOTES[noteIndex], noteOctave, 0.3);
+      await this.playNote(ALL_NOTES[noteIndex], noteOctave, 0.25);
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
   }
 
@@ -194,11 +434,11 @@ class AudioEngine {
 
   // Stop all sounds
   async stopAll() {
-    if (this.sound) {
-      await this.sound.stopAsync();
-      await this.sound.unloadAsync();
-      this.sound = null;
+    if (Platform.OS === 'web' && audioContext) {
+      await audioContext.close();
+      audioContext = null;
     }
+    this.isPlaying = false;
   }
 
   // Cleanup
@@ -223,7 +463,7 @@ export function parseChordName(chordName: string): { root: string; type: ChordTy
   const parts = chordName.split(' ');
   const root = parts[0];
   const typeStr = parts.slice(1).join(' ').toLowerCase();
-  
+
   let type: ChordType = 'major';
   if (typeStr.includes('minor') || typeStr === 'min') type = 'minor';
   else if (typeStr.includes('dorian')) type = 'dorian';
@@ -233,7 +473,7 @@ export function parseChordName(chordName: string): { root: string; type: ChordTy
   else if (typeStr === '7' || typeStr === '7th') type = '7th';
   else if (typeStr === 'maj7') type = 'maj7';
   else if (typeStr === 'min7') type = 'min7';
-  
+
   return { root, type };
 }
 

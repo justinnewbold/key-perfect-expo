@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   STATS: 'keyPerfect_stats',
   SETTINGS: 'keyPerfect_settings',
   DAILY_CHALLENGE: 'keyPerfect_dailyChallenge',
+  DAILY_COMPLETED_DATE: 'keyPerfect_dailyCompletedDate',
+  ONBOARDING_COMPLETED: 'keyPerfect_onboardingCompleted',
 };
 
 // Stats operations
@@ -117,16 +119,26 @@ export function generateDailyChallenge(date: string): DailyChallenge {
 
 // Streak calculations
 export function calculateStreak(lastPracticeDate: string, currentStreak: number): number {
+  // Handle empty or invalid date - this is the first practice
+  if (!lastPracticeDate || lastPracticeDate === '') {
+    return 1;
+  }
+
   const today = new Date().toISOString().split('T')[0];
-  const last = new Date(lastPracticeDate).toISOString().split('T')[0];
-  
-  if (!lastPracticeDate) return 1;
-  
+
+  // Validate the last practice date before parsing
+  const lastDateObj = new Date(lastPracticeDate);
+  if (isNaN(lastDateObj.getTime())) {
+    return 1; // Invalid date, start fresh
+  }
+
+  const last = lastDateObj.toISOString().split('T')[0];
+
   const todayDate = new Date(today);
   const lastDate = new Date(last);
   const diffTime = todayDate.getTime() - lastDate.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays === 0) {
     return currentStreak; // Same day
   } else if (diffDays === 1) {
@@ -277,6 +289,57 @@ export function generateInsights(stats: UserStats): string[] {
   }
   
   return insights;
+}
+
+// Daily challenge completion tracking
+export async function isDailyChallengeCompletedToday(): Promise<boolean> {
+  try {
+    const completedDate = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_COMPLETED_DATE);
+    if (!completedDate) return false;
+
+    const today = new Date().toISOString().split('T')[0];
+    return completedDate === today;
+  } catch (error) {
+    console.error('Error checking daily challenge status:', error);
+    return false;
+  }
+}
+
+export async function markDailyChallengeCompleted(): Promise<void> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_COMPLETED_DATE, today);
+  } catch (error) {
+    console.error('Error marking daily challenge completed:', error);
+  }
+}
+
+export async function getDailyChallengeCompletedDate(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.DAILY_COMPLETED_DATE);
+  } catch (error) {
+    console.error('Error getting daily challenge date:', error);
+    return null;
+  }
+}
+
+// Onboarding operations
+export async function isOnboardingCompleted(): Promise<boolean> {
+  try {
+    const completed = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+    return completed === 'true';
+  } catch (error) {
+    console.error('Error checking onboarding status:', error);
+    return false;
+  }
+}
+
+export async function markOnboardingCompleted(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, 'true');
+  } catch (error) {
+    console.error('Error marking onboarding completed:', error);
+  }
 }
 
 // Clear all data

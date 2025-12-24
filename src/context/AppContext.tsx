@@ -32,8 +32,8 @@ interface AppContextType {
   clearNewAchievements: () => void;
   
   // Audio
-  playNote: (note: string, octave?: number) => Promise<void>;
-  playChord: (root: string, type: string, octave?: number) => Promise<void>;
+  playNote: (note: string, octave?: number, duration?: number) => Promise<void>;
+  playChord: (root: string, type: string, octave?: number, duration?: number) => Promise<void>;
   
   // Loading state
   isLoading: boolean;
@@ -189,12 +189,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Audio functions
-  const playNote = useCallback(async (note: string, octave: number = 4) => {
-    await audioEngine.playNote(note, octave);
+  const playNote = useCallback(async (note: string, octave: number = 4, duration: number = 1) => {
+    await audioEngine.playNote(note, octave, duration);
   }, []);
 
-  const playChord = useCallback(async (root: string, type: string, octave: number = 4) => {
-    await audioEngine.playChord(root, type as any, octave);
+  const playChord = useCallback(async (root: string, type: string, octave: number = 4, duration: number = 1.5) => {
+    await audioEngine.playChord(root, type as any, octave, duration);
   }, []);
 
   const value: AppContextType = {

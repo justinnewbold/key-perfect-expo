@@ -1,13 +1,13 @@
 import React from 'react';
-import { 
-  TouchableOpacity, 
-  Text, 
-  StyleSheet, 
-  ViewStyle, 
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ViewStyle,
   TextStyle,
-  ActivityIndicator 
+  ActivityIndicator
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
 import { COLORS, BORDER_RADIUS, SPACING, SHADOWS } from '../utils/theme';
 
 interface ButtonProps {
@@ -21,6 +21,8 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   haptic?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export default function Button({
@@ -34,36 +36,38 @@ export default function Button({
   style,
   textStyle,
   haptic = true,
+  accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const handlePress = () => {
     if (haptic) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
     }
     onPress();
   };
 
   const variantStyles: Record<string, ViewStyle> = {
-    primary: { 
+    primary: {
       backgroundColor: COLORS.glass,
       borderColor: COLORS.glassBorder,
     },
-    secondary: { 
+    secondary: {
       backgroundColor: COLORS.cardBackground,
       borderColor: COLORS.divider,
     },
-    success: { 
+    success: {
       backgroundColor: COLORS.successLight,
       borderColor: COLORS.success,
     },
-    error: { 
+    error: {
       backgroundColor: COLORS.errorLight,
       borderColor: COLORS.error,
     },
-    ghost: { 
+    ghost: {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
     },
-    outline: { 
+    outline: {
       backgroundColor: 'transparent',
       borderColor: COLORS.glassBorder,
     },
@@ -98,6 +102,11 @@ export default function Button({
       onPress={handlePress}
       disabled={disabled || loading}
       activeOpacity={0.7}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading }}
       style={[
         styles.button,
         variantStyles[variant],
@@ -112,10 +121,10 @@ export default function Button({
       ) : (
         <>
           {icon}
-          <Text 
+          <Text
             style={[
-              styles.text, 
-              variantTextStyles[variant], 
+              styles.text,
+              variantTextStyles[variant],
               sizeStyles[size].text,
               icon && styles.textWithIcon,
               textStyle,

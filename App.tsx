@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,7 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppProvider, useApp } from './src/context/AppContext';
 import Navigation from './src/navigation/Navigation';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import AchievementToast from './src/components/AchievementToast';
 import { COLORS } from './src/utils/theme';
+import { isOnboardingCompleted, markOnboardingCompleted } from './src/utils/storage';
 
 // Loading screen component
 function LoadingScreen() {
@@ -25,15 +29,56 @@ function LoadingScreen() {
   );
 }
 
-// Main app content with loading state
+// Main app content with loading state and onboarding
 function AppContent() {
-  const { isLoading } = useApp();
+  const { isLoading, newAchievements, clearNewAchievements } = useApp();
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [currentAchievement, setCurrentAchievement] = useState<string | null>(null);
 
-  if (isLoading) {
+  useEffect(() => {
+    async function checkOnboarding() {
+      const completed = await isOnboardingCompleted();
+      setShowOnboarding(!completed);
+    }
+    checkOnboarding();
+  }, []);
+
+  // Show achievement notifications one at a time
+  useEffect(() => {
+    if (newAchievements.length > 0 && !currentAchievement) {
+      setCurrentAchievement(newAchievements[0]);
+    }
+  }, [newAchievements, currentAchievement]);
+
+  const handleAchievementHide = () => {
+    setCurrentAchievement(null);
+    clearNewAchievements();
+  };
+
+  if (isLoading || showOnboarding === null) {
     return <LoadingScreen />;
   }
 
-  return <Navigation />;
+  if (showOnboarding) {
+    return (
+      <OnboardingScreen
+        onComplete={async () => {
+          await markOnboardingCompleted();
+          setShowOnboarding(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Navigation />
+      <AchievementToast
+        achievementId={currentAchievement}
+        onHide={handleAchievementHide}
+      />
+    </>
+  );
 }
 
 // Root app component
@@ -41,10 +86,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <AppProvider>
-          <StatusBar style="light" />
-          <AppContent />
-        </AppProvider>
+        <ErrorBoundary>
+          <AppProvider>
+            <StatusBar style="light" />
+            <AppContent />
+          </AppProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
