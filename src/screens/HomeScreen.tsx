@@ -67,8 +67,8 @@ export default function HomeScreen() {
 
         {/* Quick Stats */}
         <View style={styles.statsRow}>
-          {quickStats.map((stat, index) => (
-            <GlassCard key={index} style={styles.statCard}>
+          {quickStats.map((stat) => (
+            <GlassCard key={stat.label} style={styles.statCard}>
               <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </GlassCard>

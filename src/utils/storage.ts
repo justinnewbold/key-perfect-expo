@@ -83,10 +83,24 @@ export async function saveDailyChallenge(challenge: DailyChallenge): Promise<voi
 
 // Generate daily challenge based on date
 export function generateDailyChallenge(date: string): DailyChallenge {
+  // Validate date input
+  if (!date || typeof date !== 'string') {
+    console.warn('Invalid date provided to generateDailyChallenge, using today');
+    date = new Date().toISOString().split('T')[0];
+  }
+
   // Use date as seed for deterministic randomness
   const dateNum = new Date(date).getTime();
+
+  // Validate parsed date
+  if (isNaN(dateNum)) {
+    console.warn('Could not parse date, using today');
+    const today = new Date().toISOString().split('T')[0];
+    return generateDailyChallenge(today);
+  }
+
   const seed = dateNum % 10000;
-  
+
   const types: DailyChallenge['type'][] = ['notes', 'chords', 'intervals', 'progressions'];
   const typeIndex = seed % types.length;
   const type = types[typeIndex];

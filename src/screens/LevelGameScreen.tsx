@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   TouchableOpacity,
   Animated,
   Dimensions,
@@ -26,8 +26,14 @@ export default function LevelGameScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { levelId } = route.params;
-  const level = LEVELS.find(l => l.id === levelId)!;
-  
+  const level = LEVELS.find(l => l.id === levelId);
+
+  // Handle invalid levelId
+  if (!level) {
+    navigation.goBack();
+    return null;
+  }
+
   const { recordAnswer, addXP, completeLevel, settings, playNote, playChord } = useApp();
 
   const [gameState, setGameState] = useState<GameState>('playing');
@@ -41,13 +47,39 @@ export default function LevelGameScreen() {
   const [shakeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(1));
 
+  // Track timeouts for cleanup
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
+      timeoutRefs.current = [];
+    };
+  }, []);
+
+  // Helper to create tracked timeouts
+  const safeSetTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      callback();
+      // Remove from refs after execution
+      timeoutRefs.current = timeoutRefs.current.filter(id => id !== timeoutId);
+    }, delay);
+    timeoutRefs.current.push(timeoutId);
+    return timeoutId;
+  }, []);
+
   // Play sound for the given answer
   const playSoundForAnswer = useCallback(async (answer: string) => {
-    if (level.type === 'single-note') {
-      await playNote(answer);
-    } else {
-      const { root, type } = parseChordName(answer);
-      await playChord(root, type);
+    try {
+      if (level.type === 'single-note') {
+        await playNote(answer);
+      } else {
+        const { root, type } = parseChordName(answer);
+        await playChord(root, type);
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
     }
   }, [level.type, playNote, playChord]);
 
@@ -66,10 +98,10 @@ export default function LevelGameScreen() {
     setSelectedAnswer(null);
 
     // Play the sound after a short delay to ensure state is updated
-    setTimeout(() => {
+    safeSetTimeout(() => {
       playSoundForAnswer(answer);
     }, 300);
-  }, [level, playSoundForAnswer]);
+  }, [level, playSoundForAnswer, safeSetTimeout]);
 
   // Initialize first question
   useEffect(() => {
@@ -127,12 +159,12 @@ export default function LevelGameScreen() {
     // Check if level is complete
     const totalAnswered = score.correct + score.incorrect + 1;
     if (totalAnswered >= level.requiredTotal) {
-      setTimeout(() => {
+      safeSetTimeout(() => {
         setGameState('complete');
       }, 1000);
     } else {
       // Next question after delay
-      setTimeout(() => {
+      safeSetTimeout(() => {
         setCurrentQuestion(prev => prev + 1);
         generateQuestion();
       }, 1500);
