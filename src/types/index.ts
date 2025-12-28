@@ -400,6 +400,12 @@ export interface UserSettings {
   showHints: boolean;
   hapticFeedback: boolean;
   theme: ThemeId;
+  // Sound customization options
+  octaveRange: { min: number; max: number };
+  referencePitch: number; // A4 frequency in Hz (default 440)
+  playbackSpeed: number; // 0.5 to 2.0
+  intervalPlayMode: 'harmonic' | 'melodic'; // Harmonic (together) or melodic (sequential)
+  reducedMotion: boolean; // Accessibility: reduce animations
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -412,4 +418,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
   showHints: true,
   hapticFeedback: true,
   theme: 'purple',
+  // Sound customization defaults
+  octaveRange: { min: 3, max: 5 },
+  referencePitch: 440,
+  playbackSpeed: 1.0,
+  intervalPlayMode: 'harmonic',
+  reducedMotion: false,
 };

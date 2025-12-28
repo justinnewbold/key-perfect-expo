@@ -211,6 +211,9 @@ export default function PracticeScreen() {
                     practiceMode === mode && styles.modeButtonActive,
                   ]}
                   onPress={() => setPracticeMode(mode)}
+                  accessibilityLabel={`${mode.charAt(0).toUpperCase() + mode.slice(1)} practice mode`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: practiceMode === mode }}
                 >
                   <Text style={[
                     styles.modeButtonText,
@@ -386,7 +389,13 @@ export default function PracticeScreen() {
 
         {/* Play Button */}
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <TouchableOpacity style={styles.playButton} onPress={playSound}>
+          <TouchableOpacity
+            style={styles.playButton}
+            onPress={playSound}
+            accessibilityLabel="Play sound"
+            accessibilityRole="button"
+            accessibilityHint="Tap to hear the sound you need to identify"
+          >
             <LinearGradient
               colors={[COLORS.xpGradientStart, COLORS.xpGradientEnd]}
               style={styles.playButtonGradient}
@@ -424,6 +433,9 @@ export default function PracticeScreen() {
                 style={[buttonStyle, answerState !== 'default' && styles.answerDisabled]}
                 onPress={() => handleAnswer(option)}
                 disabled={answerState !== 'default'}
+                accessibilityLabel={`Answer: ${option}`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: answerState !== 'default' }}
               >
                 <Text style={styles.answerText}>{option}</Text>
               </TouchableOpacity>

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, AccessibilityRole } from 'react-native';
 import { COLORS, BORDER_RADIUS, SHADOWS, SPACING } from '../utils/theme';
 
 interface GlassCardProps {
@@ -8,6 +8,8 @@ interface GlassCardProps {
   variant?: 'default' | 'light' | 'dark' | 'success' | 'error';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   accessibilityLabel?: string;
+  accessibilityRole?: AccessibilityRole;
+  accessibilityHint?: string;
 }
 
 function GlassCard({
@@ -16,6 +18,8 @@ function GlassCard({
   variant = 'default',
   padding = 'md',
   accessibilityLabel,
+  accessibilityRole,
+  accessibilityHint,
 }: GlassCardProps) {
   const variantStyles = {
     default: { backgroundColor: COLORS.glass },
@@ -36,7 +40,8 @@ function GlassCard({
     <View
       accessible={!!accessibilityLabel}
       accessibilityLabel={accessibilityLabel}
-      accessibilityRole={accessibilityLabel ? 'summary' : undefined}
+      accessibilityRole={accessibilityRole || (accessibilityLabel ? 'summary' : undefined)}
+      accessibilityHint={accessibilityHint}
       style={[
         styles.card,
         variantStyles[variant],

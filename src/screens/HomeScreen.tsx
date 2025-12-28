@@ -54,9 +54,12 @@ export default function HomeScreen() {
             <Text style={styles.welcomeText}>Welcome back!</Text>
             <Text style={styles.title}>Key Perfect</Text>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.settingsButton}
             onPress={() => navigation.navigate('Settings')}
+            accessibilityLabel="Settings"
+            accessibilityRole="button"
+            accessibilityHint="Open app settings"
           >
             <Ionicons name="settings-outline" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
@@ -68,7 +71,12 @@ export default function HomeScreen() {
         {/* Quick Stats */}
         <View style={styles.statsRow}>
           {quickStats.map((stat) => (
-            <GlassCard key={stat.label} style={styles.statCard}>
+            <GlassCard
+              key={stat.label}
+              style={styles.statCard}
+              accessibilityLabel={`${stat.label}: ${stat.value}`}
+              accessibilityRole="text"
+            >
               <Text style={[styles.statValue, { color: stat.color }]}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </GlassCard>
@@ -83,9 +91,12 @@ export default function HomeScreen() {
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.continueCard}
             onPress={() => navigation.navigate('Levels')}
+            accessibilityLabel={`Continue Level ${Math.min(unlockedCount, 8)}: ${LEVELS[Math.min(unlockedCount - 1, 7)]?.name}`}
+            accessibilityRole="button"
+            accessibilityHint="Continue to your current level"
           >
             <View style={styles.continueContent}>
               <View style={styles.progressCircle}>
@@ -108,33 +119,45 @@ export default function HomeScreen() {
         <GlassCard style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Play</Text>
           <View style={styles.quickPlayGrid}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.quickPlayCard, { backgroundColor: COLORS.speedMode + '30' }]}
               onPress={() => navigation.navigate('GameMode', { mode: 'speed' })}
+              accessibilityLabel="Speed Mode"
+              accessibilityRole="button"
+              accessibilityHint="30 seconds to answer as many as possible"
             >
               <Ionicons name="timer-outline" size={32} color={COLORS.speedMode} />
               <Text style={styles.quickPlayLabel}>Speed</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.quickPlayCard, { backgroundColor: COLORS.survivalMode + '30' }]}
               onPress={() => navigation.navigate('GameMode', { mode: 'survival' })}
+              accessibilityLabel="Survival Mode"
+              accessibilityRole="button"
+              accessibilityHint="3 lives, progressive difficulty"
             >
               <Ionicons name="heart-outline" size={32} color={COLORS.survivalMode} />
               <Text style={styles.quickPlayLabel}>Survival</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.quickPlayCard, { backgroundColor: COLORS.dailyChallenge + '30' }]}
               onPress={() => navigation.navigate('GameMode', { mode: 'daily' })}
+              accessibilityLabel="Daily Challenge"
+              accessibilityRole="button"
+              accessibilityHint="New challenge every day"
             >
               <Ionicons name="calendar-outline" size={32} color={COLORS.dailyChallenge} />
               <Text style={styles.quickPlayLabel}>Daily</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.quickPlayCard, { backgroundColor: COLORS.intervals + '30' }]}
-              onPress={() => navigation.navigate('Practice')}
+            <TouchableOpacity
+              style={[styles.quickPlayCard, { backgroundColor: COLORS.error + '30' }]}
+              onPress={() => navigation.navigate('WeakAreas')}
+              accessibilityLabel="Weak Areas Practice"
+              accessibilityRole="button"
+              accessibilityHint="Practice items you struggle with using spaced repetition"
             >
-              <Ionicons name="musical-notes-outline" size={32} color={COLORS.intervals} />
-              <Text style={styles.quickPlayLabel}>Practice</Text>
+              <Ionicons name="fitness-outline" size={32} color={COLORS.error} />
+              <Text style={styles.quickPlayLabel}>Weak Areas</Text>
             </TouchableOpacity>
           </View>
         </GlassCard>
@@ -157,6 +180,9 @@ export default function HomeScreen() {
                 key={mode.id}
                 style={[styles.modeCard, { backgroundColor: mode.color + '30' }]}
                 onPress={() => navigation.navigate('GameMode', { mode: mode.id })}
+                accessibilityLabel={`${mode.name} mode`}
+                accessibilityRole="button"
+                accessibilityHint={mode.description}
               >
                 <View style={[styles.modeIcon, { backgroundColor: mode.color + '50' }]}>
                   <Ionicons name={mode.icon as any} size={24} color={mode.color} />
