@@ -179,6 +179,16 @@ export default function HomeScreen() {
               <Ionicons name="trophy-outline" size={32} color="#F39C12" />
               <Text style={styles.quickPlayLabel}>Social</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickPlayCard, { backgroundColor: '#27AE60' + '30' }]}
+              onPress={() => navigation.navigate('LessonPlans')}
+              accessibilityLabel="Lesson Plans"
+              accessibilityRole="button"
+              accessibilityHint="Follow structured learning paths"
+            >
+              <Ionicons name="school-outline" size={32} color="#27AE60" />
+              <Text style={styles.quickPlayLabel}>Lessons</Text>
+            </TouchableOpacity>
           </View>
         </GlassCard>
 

@@ -33,13 +33,17 @@ export const NATURAL_NOTES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 export const BASIC_NOTES = ['C', 'D', 'E', 'F', 'G'];
 
 // Chord types
-export type ChordType = 'major' | 'minor' | 'dorian' | 'phrygian' | 'diminished' | 'augmented' | '7th' | 'maj7' | 'min7';
+export type ChordType = 'major' | 'minor' | 'dorian' | 'phrygian' | 'diminished' | 'augmented' | '7th' | 'maj7' | 'min7' | 'dim7' | 'halfdim7';
+
+// Chord inversion types
+export type InversionType = 'root' | 'first' | 'second' | 'third';
 
 export interface Chord {
   name: string;
   root: string;
   type: ChordType;
   intervals: number[];
+  inversion?: InversionType;
 }
 
 // Chord intervals from root
@@ -53,7 +57,41 @@ export const CHORD_INTERVALS: Record<ChordType, number[]> = {
   '7th': [0, 4, 7, 10],
   'maj7': [0, 4, 7, 11],
   'min7': [0, 3, 7, 10],
+  'dim7': [0, 3, 6, 9],
+  'halfdim7': [0, 3, 6, 10],
 };
+
+// Inversion intervals (how many semitones to shift each note up)
+export const INVERSION_SHIFTS: Record<InversionType, number> = {
+  root: 0,
+  first: 12,   // Move root up an octave
+  second: 12,  // Move root and 3rd up an octave
+  third: 12,   // For 7th chords - move root, 3rd, 5th up
+};
+
+// 7th chord types for advanced training
+export const SEVENTH_CHORDS = [
+  'C7', 'D7', 'E7', 'F7', 'G7', 'A7', 'B7',
+  'Cmaj7', 'Dmaj7', 'Emaj7', 'Fmaj7', 'Gmaj7', 'Amaj7', 'Bmaj7',
+  'Cm7', 'Dm7', 'Em7', 'Fm7', 'Gm7', 'Am7', 'Bm7',
+  'Cdim7', 'Ddim7', 'Edim7', 'Fdim7', 'Gdim7', 'Adim7', 'Bdim7',
+];
+
+// Chord voicing types
+export type VoicingType = 'close' | 'open' | 'drop2' | 'drop3';
+
+export interface ChordVoicing {
+  type: VoicingType;
+  name: string;
+  description: string;
+}
+
+export const CHORD_VOICINGS: ChordVoicing[] = [
+  { type: 'close', name: 'Close Voicing', description: 'All notes within one octave' },
+  { type: 'open', name: 'Open Voicing', description: 'Notes spread across multiple octaves' },
+  { type: 'drop2', name: 'Drop 2', description: 'Second voice from top dropped an octave' },
+  { type: 'drop3', name: 'Drop 3', description: 'Third voice from top dropped an octave' },
+];
 
 // Major and minor chords
 export const MAJOR_CHORDS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].map(note => `${note} Major`);
