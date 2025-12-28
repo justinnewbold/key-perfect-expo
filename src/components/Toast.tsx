@@ -31,6 +31,21 @@ function ToastItem({ toast, onHide }: { toast: Toast; onHide: (id: string) => vo
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-20)).current;
 
+  const hideWithAnimation = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -20,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onHide(toast.id));
+  }, [opacity, translateY, onHide, toast.id]);
+
   useEffect(() => {
     // Animate in
     Animated.parallel([
@@ -52,22 +67,7 @@ function ToastItem({ toast, onHide }: { toast: Toast; onHide: (id: string) => vo
     }, toast.duration || 3000);
 
     return () => clearTimeout(timer);
-  }, []);
-
-  const hideWithAnimation = () => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -20,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => onHide(toast.id));
-  };
+  }, [hideWithAnimation, toast.duration, opacity, translateY]);
 
   const getToastStyle = () => {
     switch (toast.type) {

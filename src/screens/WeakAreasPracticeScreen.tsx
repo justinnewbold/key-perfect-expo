@@ -47,11 +47,15 @@ export default function WeakAreasPracticeScreen() {
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const initialLoadDone = useRef(false);
 
-  // Load recommendations on mount
+  // Load recommendations on mount only (not on every stats change)
   useEffect(() => {
-    const rec = getRecommendedPractice(stats, 10);
-    setRecommendation(rec);
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      const rec = getRecommendedPractice(stats, 10);
+      setRecommendation(rec);
+    }
   }, [stats]);
 
   // Start practice session

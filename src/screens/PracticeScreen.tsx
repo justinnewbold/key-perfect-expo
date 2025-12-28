@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,15 @@ export default function PracticeScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(clearTimeout);
+      timeoutRefs.current = [];
+    };
+  }, []);
 
   const getAvailableItems = (): string[] => {
     switch (practiceMode) {
@@ -132,7 +141,7 @@ export default function PracticeScreen() {
     }
 
     // Next question after delay
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       const { selectedItems } = practiceState;
       const currentItem = selectedItems[Math.floor(Math.random() * selectedItems.length)];
       const numOptions = Math.min(difficulty, selectedItems.length);
@@ -152,9 +161,13 @@ export default function PracticeScreen() {
       setSelectedAnswer(null);
 
       if (settings.autoPlay) {
-        setTimeout(playSound, 300);
+        const autoPlayTimeout = setTimeout(() => {
+          void playSound();
+        }, 300);
+        timeoutRefs.current.push(autoPlayTimeout);
       }
     }, isCorrect ? 500 : 800);
+    timeoutRefs.current.push(timeoutId);
   };
 
   const toggleNote = (note: string) => {

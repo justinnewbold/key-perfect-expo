@@ -55,19 +55,23 @@ export default function LeaderboardScreen() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [lb, fr, ch, pr, fc] = await Promise.all([
-      getLeaderboardData(),
-      getFriends(),
-      getChallenges(),
-      getUserProfile(),
-      getFriendCode(),
-    ]);
-    setLeaderboardData(lb);
-    setFriends(fr);
-    setChallenges(ch);
-    setProfile(pr);
-    setFriendCode(fc);
-    setNewName(pr.displayName);
+    try {
+      const [lb, fr, ch, pr, fc] = await Promise.all([
+        getLeaderboardData(),
+        getFriends(),
+        getChallenges(),
+        getUserProfile(),
+        getFriendCode(),
+      ]);
+      setLeaderboardData(lb);
+      setFriends(fr);
+      setChallenges(ch);
+      setProfile(pr);
+      setFriendCode(fc);
+      setNewName(pr?.displayName || '');
+    } catch (error) {
+      console.error('Error loading leaderboard data:', error);
+    }
   }, []);
 
   useEffect(() => {
@@ -106,8 +110,13 @@ export default function LeaderboardScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            await removeFriend(friend.userId);
-            loadData();
+            try {
+              await removeFriend(friend.userId);
+              await loadData();
+            } catch (error) {
+              console.error('Error removing friend:', error);
+              Alert.alert('Error', 'Failed to remove friend');
+            }
           },
         },
       ]
@@ -126,16 +135,26 @@ export default function LeaderboardScreen() {
 
   const handleSaveName = async () => {
     if (newName.trim()) {
-      await updateDisplayName(newName);
-      setEditingName(false);
-      loadData();
+      try {
+        await updateDisplayName(newName);
+        setEditingName(false);
+        await loadData();
+      } catch (error) {
+        console.error('Error saving name:', error);
+        Alert.alert('Error', 'Failed to save name');
+      }
     }
   };
 
   const handleSelectAvatar = async (emoji: string) => {
-    await updateAvatar(emoji);
-    setShowAvatarPicker(false);
-    loadData();
+    try {
+      await updateAvatar(emoji);
+      setShowAvatarPicker(false);
+      await loadData();
+    } catch (error) {
+      console.error('Error selecting avatar:', error);
+      Alert.alert('Error', 'Failed to update avatar');
+    }
   };
 
   const renderLeaderboardTab = () => {
