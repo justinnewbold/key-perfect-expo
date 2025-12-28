@@ -514,6 +514,14 @@ export default function LeaderboardScreen() {
           <View style={{ width: 24 }} />
         </View>
 
+        {/* Offline Mode Banner */}
+        <View style={styles.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color={COLORS.warning} />
+          <Text style={styles.offlineBannerText}>
+            Offline Mode - Leaderboards show sample data
+          </Text>
+        </View>
+
         {/* Tab Buttons */}
         <View style={styles.tabContainer}>
           {tabs.map((tab) => (
@@ -572,6 +580,20 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+    gap: SPACING.xs,
+  },
+  offlineBannerText: {
+    color: COLORS.warning,
+    fontSize: 12,
+    fontWeight: '500',
   },
   tabContainer: {
     flexDirection: 'row',

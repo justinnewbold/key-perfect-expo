@@ -215,6 +215,14 @@ export default function SingBackScreen() {
             </Text>
           </GlassCard>
 
+          {/* Demo Mode Notice */}
+          <View style={styles.demoNotice}>
+            <Ionicons name="flask" size={16} color={COLORS.info} />
+            <Text style={styles.demoNoticeText}>
+              Demo Mode: Pitch detection is simulated. Real microphone analysis requires native audio processing libraries.
+            </Text>
+          </View>
+
           <GlassCard style={styles.settingsCard}>
             <Text style={styles.settingTitle}>Note Selection</Text>
             <View style={styles.toggleRow}>
@@ -526,6 +534,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  demoNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.info + '20',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+    gap: SPACING.xs,
+  },
+  demoNoticeText: {
+    flex: 1,
+    color: COLORS.info,
+    fontSize: 11,
+    lineHeight: 16,
   },
   settingsCard: {
     marginBottom: SPACING.lg,
