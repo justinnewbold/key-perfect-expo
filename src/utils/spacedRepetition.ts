@@ -78,8 +78,7 @@ function getIntervalIndex(accuracy: number, currentIndex: number): number {
 // Analyze accuracy data for a specific type
 function analyzeAccuracyData(
   accuracyData: Record<string, ItemAccuracy>,
-  type: 'note' | 'chord' | 'interval' | 'scale',
-  today: string
+  type: 'note' | 'chord' | 'interval' | 'scale'
 ): SpacedRepetitionItem[] {
   const items: SpacedRepetitionItem[] = [];
 
@@ -87,7 +86,9 @@ function analyzeAccuracyData(
     if (data.total < 1) return; // Skip items with no attempts
 
     const accuracy = data.total > 0 ? data.correct / data.total : 0;
-    const priority = calculatePriority(accuracy, data.total, today);
+    // Note: We don't have per-item lastPracticed data, so use undefined
+    // This gives items without recent practice higher priority
+    const priority = calculatePriority(accuracy, data.total, undefined);
     const intervalIndex = getIntervalIndex(accuracy, 0);
 
     items.push({
@@ -95,7 +96,7 @@ function analyzeAccuracyData(
       type,
       accuracy,
       totalAttempts: data.total,
-      lastPracticed: today,
+      lastPracticed: undefined,
       priority,
       intervalIndex,
     });
@@ -106,13 +107,11 @@ function analyzeAccuracyData(
 
 // Get all items that need practice based on spaced repetition
 export function getItemsForPractice(stats: UserStats): SpacedRepetitionItem[] {
-  const today = new Date().toISOString().split('T')[0];
-
   const allItems: SpacedRepetitionItem[] = [
-    ...analyzeAccuracyData(stats.noteAccuracy, 'note', today),
-    ...analyzeAccuracyData(stats.chordAccuracy, 'chord', today),
-    ...analyzeAccuracyData(stats.intervalAccuracy, 'interval', today),
-    ...analyzeAccuracyData(stats.scaleAccuracy, 'scale', today),
+    ...analyzeAccuracyData(stats.noteAccuracy, 'note'),
+    ...analyzeAccuracyData(stats.chordAccuracy, 'chord'),
+    ...analyzeAccuracyData(stats.intervalAccuracy, 'interval'),
+    ...analyzeAccuracyData(stats.scaleAccuracy, 'scale'),
   ];
 
   // Sort by priority (highest first)
@@ -122,7 +121,6 @@ export function getItemsForPractice(stats: UserStats): SpacedRepetitionItem[] {
 // Get weak areas that need focused practice
 export function getWeakAreas(stats: UserStats): WeakArea[] {
   const weakAreas: WeakArea[] = [];
-  const today = new Date().toISOString().split('T')[0];
 
   // Helper to add weak items
   const addWeakItems = (
@@ -139,7 +137,8 @@ export function getWeakAreas(stats: UserStats): WeakArea[] {
             attempts: data.total,
             correct: data.correct,
             accuracy: accuracy * 100,
-            lastPracticed: today,
+            // Note: We don't have per-item lastPracticed data
+            lastPracticed: undefined,
           });
         }
       }

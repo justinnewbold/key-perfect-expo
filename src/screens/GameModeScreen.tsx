@@ -109,6 +109,7 @@ export default function GameModeScreen() {
   const [speedState, setSpeedState] = useState<SpeedGameState | null>(null);
   const [speedAnswerState, setSpeedAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
   const speedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Survival Mode
   const [survivalState, setSurvivalState] = useState<SurvivalGameState | null>(null);
@@ -162,6 +163,9 @@ export default function GameModeScreen() {
         clearInterval(speedTimerRef.current);
         speedTimerRef.current = null;
       }
+      // Clear all tracked timeouts
+      timeoutRefs.current.forEach(clearTimeout);
+      timeoutRefs.current = [];
     };
   }, []);
 
@@ -263,7 +267,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
       const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
@@ -276,6 +280,7 @@ export default function GameModeScreen() {
       } : prev);
       setSpeedAnswerState('default');
     }, 300);
+    timeoutRefs.current.push(timeoutId);
   };
 
   // End Speed Mode
@@ -326,7 +331,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    const survivalTimeoutId = setTimeout(() => {
       const newLives = survivalState.lives - (isCorrect ? 0 : 1);
       const newScore = survivalState.score + (isCorrect ? 1 : 0);
       const newLevel = Math.floor(newScore / 5) + 1;
@@ -356,6 +361,7 @@ export default function GameModeScreen() {
       });
       setSurvivalAnswerState('default');
     }, 500);
+    timeoutRefs.current.push(survivalTimeoutId);
   };
 
   // Start Intervals Mode
