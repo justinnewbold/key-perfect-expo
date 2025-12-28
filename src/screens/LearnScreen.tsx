@@ -362,6 +362,9 @@ export default function LearnScreen() {
               key={section.id}
               style={[styles.sectionCard, { borderColor: section.color + '40' }]}
               onPress={() => setActiveSection(section.id)}
+              accessibilityLabel={section.title}
+              accessibilityRole="button"
+              accessibilityHint={section.description}
             >
               <View style={[styles.sectionIcon, { backgroundColor: section.color + '30' }]}>
                 <Ionicons name={section.icon as any} size={28} color={section.color} />
@@ -400,9 +403,11 @@ export default function LearnScreen() {
               colors={[COLORS.gradientStart, COLORS.gradientEnd]}
               style={styles.modalGradient}
             >
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalClose}
                 onPress={() => setActiveSection(null)}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={28} color={COLORS.textPrimary} />
               </TouchableOpacity>

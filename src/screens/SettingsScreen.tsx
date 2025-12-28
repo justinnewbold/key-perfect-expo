@@ -138,10 +138,116 @@ export default function SettingsScreen() {
           )}
         </GlassCard>
 
+        {/* Sound Customization */}
+        <GlassCard style={styles.section}>
+          <Text style={styles.sectionTitle}>🎛️ Sound Customization</Text>
+
+          {/* Octave Range */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="options" size={24} color={COLORS.textPrimary} />
+              <View>
+                <Text style={styles.settingLabel}>Octave Range</Text>
+                <Text style={styles.settingDesc}>Range of octaves for practice</Text>
+              </View>
+            </View>
+            <Text style={styles.settingValueText}>
+              {settings.octaveRange?.min ?? 3} - {settings.octaveRange?.max ?? 5}
+            </Text>
+          </View>
+
+          {/* Reference Pitch */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="musical-note" size={24} color={COLORS.textPrimary} />
+              <View>
+                <Text style={styles.settingLabel}>Reference Pitch (A4)</Text>
+                <Text style={styles.settingDesc}>Standard tuning frequency</Text>
+              </View>
+            </View>
+            <View style={styles.volumeControl}>
+              <TouchableOpacity
+                style={styles.volumeButton}
+                onPress={() => updateSettings({
+                  referencePitch: Math.max(430, (settings.referencePitch ?? 440) - 1)
+                })}
+                accessibilityLabel="Decrease reference pitch"
+              >
+                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.volumeValue}>{settings.referencePitch ?? 440} Hz</Text>
+              <TouchableOpacity
+                style={styles.volumeButton}
+                onPress={() => updateSettings({
+                  referencePitch: Math.min(450, (settings.referencePitch ?? 440) + 1)
+                })}
+                accessibilityLabel="Increase reference pitch"
+              >
+                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Interval Play Mode */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="git-compare" size={24} color={COLORS.textPrimary} />
+              <View>
+                <Text style={styles.settingLabel}>Interval Mode</Text>
+                <Text style={styles.settingDesc}>How intervals are played</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.toggleButton}
+              onPress={() => updateSettings({
+                intervalPlayMode: settings.intervalPlayMode === 'harmonic' ? 'melodic' : 'harmonic'
+              })}
+              accessibilityLabel={`Interval mode: ${settings.intervalPlayMode ?? 'harmonic'}`}
+              accessibilityRole="button"
+            >
+              <Text style={styles.toggleButtonText}>
+                {(settings.intervalPlayMode ?? 'harmonic') === 'harmonic' ? 'Harmonic' : 'Melodic'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Playback Speed */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="speedometer" size={24} color={COLORS.textPrimary} />
+              <View>
+                <Text style={styles.settingLabel}>Playback Speed</Text>
+                <Text style={styles.settingDesc}>Speed of audio playback</Text>
+              </View>
+            </View>
+            <View style={styles.volumeControl}>
+              <TouchableOpacity
+                style={styles.volumeButton}
+                onPress={() => updateSettings({
+                  playbackSpeed: Math.max(0.5, (settings.playbackSpeed ?? 1.0) - 0.1)
+                })}
+                accessibilityLabel="Decrease playback speed"
+              >
+                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.volumeValue}>{(settings.playbackSpeed ?? 1.0).toFixed(1)}x</Text>
+              <TouchableOpacity
+                style={styles.volumeButton}
+                onPress={() => updateSettings({
+                  playbackSpeed: Math.min(2.0, (settings.playbackSpeed ?? 1.0) + 0.1)
+                })}
+                accessibilityLabel="Increase playback speed"
+              >
+                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </GlassCard>
+
         {/* Gameplay Settings */}
         <GlassCard style={styles.section}>
           <Text style={styles.sectionTitle}>🎮 Gameplay</Text>
-          
+
           {/* Auto-play */}
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
@@ -156,6 +262,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => updateSettings({ autoPlay: value })}
               trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
               thumbColor={settings.autoPlay ? COLORS.success : COLORS.textMuted}
+              accessibilityLabel="Auto-play next question"
             />
           </View>
 
@@ -173,6 +280,7 @@ export default function SettingsScreen() {
               onValueChange={(value) => updateSettings({ showHints: value })}
               trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
               thumbColor={settings.showHints ? COLORS.success : COLORS.textMuted}
+              accessibilityLabel="Show hints"
             />
           </View>
 
@@ -190,6 +298,30 @@ export default function SettingsScreen() {
               onValueChange={(value) => updateSettings({ hapticFeedback: value })}
               trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
               thumbColor={settings.hapticFeedback ? COLORS.success : COLORS.textMuted}
+              accessibilityLabel="Haptic feedback"
+            />
+          </View>
+        </GlassCard>
+
+        {/* Accessibility */}
+        <GlassCard style={styles.section}>
+          <Text style={styles.sectionTitle}>♿ Accessibility</Text>
+
+          {/* Reduced Motion */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="flash-off" size={24} color={COLORS.textPrimary} />
+              <View>
+                <Text style={styles.settingLabel}>Reduced Motion</Text>
+                <Text style={styles.settingDesc}>Minimize animations for accessibility</Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.reducedMotion ?? false}
+              onValueChange={(value) => updateSettings({ reducedMotion: value })}
+              trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
+              thumbColor={(settings.reducedMotion ?? false) ? COLORS.success : COLORS.textMuted}
+              accessibilityLabel="Reduced motion"
             />
           </View>
         </GlassCard>
@@ -376,6 +508,17 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 12,
     marginTop: SPACING.xs,
+  },
+  toggleButton: {
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  toggleButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   statRow: {
     flexDirection: 'row',
