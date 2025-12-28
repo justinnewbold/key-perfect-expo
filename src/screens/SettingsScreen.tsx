@@ -16,8 +16,8 @@ import * as Clipboard from 'expo-clipboard';
 import { COLORS, SPACING, BORDER_RADIUS, INSTRUMENTS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
-import { Instrument, UserSettings, DEFAULT_SETTINGS } from '../types';
-import { clearAllData, clearStats, clearSettings } from '../utils/storage';
+import { Instrument, UserSettings } from '../types';
+import { clearAllData } from '../utils/storage';
 
 // Settings presets
 const PRESETS = {

@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
-import { INTERVALS, SCALES, PROGRESSIONS, ALL_NOTES, CHORD_INTERVALS, ChordType } from '../types';
+import { INTERVALS, SCALES, PROGRESSIONS, ALL_NOTES } from '../types';
 import { useApp } from '../context/AppContext';
 import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
 

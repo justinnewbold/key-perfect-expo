@@ -77,8 +77,9 @@ export default function SingBackScreen() {
       return () => clearTimeout(timer);
     } else if (gameState === 'listening' && countdown === 0) {
       // Time's up, evaluate the pitch
-      evaluatePitch();
+      void evaluatePitch();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState, countdown]);
 
   // Simulate pitch updates while listening
@@ -89,7 +90,7 @@ export default function SingBackScreen() {
       }, 200);
       return () => clearInterval(interval);
     }
-  }, [gameState, pitchDetection.isRecording, currentNote]);
+  }, [gameState, pitchDetection, currentNote]);
 
   const startGame = async () => {
     // Request mic permission first
