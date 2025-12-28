@@ -28,10 +28,10 @@ export default function HomeScreen() {
         : '0%',
       color: COLORS.success 
     },
-    { 
-      label: 'Levels', 
-      value: `${stats.levelsCompleted}/8`, 
-      color: COLORS.info 
+    {
+      label: 'Levels',
+      value: `${stats.levelsCompleted}/${LEVELS.length}`,
+      color: COLORS.info
     },
   ];
 
@@ -94,20 +94,20 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.continueCard}
             onPress={() => navigation.navigate('Levels')}
-            accessibilityLabel={`Continue Level ${Math.min(unlockedCount, 8)}: ${LEVELS[Math.min(unlockedCount - 1, 7)]?.name}`}
+            accessibilityLabel={`Continue Level ${Math.min(unlockedCount, LEVELS.length)}: ${LEVELS[Math.min(unlockedCount - 1, LEVELS.length - 1)]?.name}`}
             accessibilityRole="button"
             accessibilityHint="Continue to your current level"
           >
             <View style={styles.continueContent}>
               <View style={styles.progressCircle}>
-                <Text style={styles.progressText}>{completedCount}/8</Text>
+                <Text style={styles.progressText}>{completedCount}/{LEVELS.length}</Text>
               </View>
               <View style={styles.continueInfo}>
                 <Text style={styles.continueTitle}>
-                  Level {Math.min(unlockedCount, 8)}: {LEVELS[Math.min(unlockedCount - 1, 7)]?.name}
+                  Level {Math.min(unlockedCount, LEVELS.length)}: {LEVELS[Math.min(unlockedCount - 1, LEVELS.length - 1)]?.name}
                 </Text>
                 <Text style={styles.continueSubtitle}>
-                  {LEVELS[Math.min(unlockedCount - 1, 7)]?.description}
+                  {LEVELS[Math.min(unlockedCount - 1, LEVELS.length - 1)]?.description}
                 </Text>
               </View>
             </View>

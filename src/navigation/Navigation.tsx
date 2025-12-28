@@ -20,6 +20,7 @@ import WeakAreasPracticeScreen from '../screens/WeakAreasPracticeScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import SingBackScreen from '../screens/SingBackScreen';
 import LessonPlansScreen from '../screens/LessonPlansScreen';
+import GuitarScreen from '../screens/GuitarScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -38,6 +39,7 @@ function HomeStack() {
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Stack.Screen name="SingBack" component={SingBackScreen} />
       <Stack.Screen name="LessonPlans" component={LessonPlansScreen} />
+      <Stack.Screen name="Guitar" component={GuitarScreen} />
     </Stack.Navigator>
   );
 }

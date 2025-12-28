@@ -716,7 +716,7 @@ export default function GameModeScreen() {
 
     if (isCorrect) {
       safeHaptics.notificationAsync(NotificationFeedbackType.Success);
-      await addXP(XP_PER_CORRECT * 1.5);
+      await addXP(Math.round(XP_PER_CORRECT * 1.5));
     } else {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }

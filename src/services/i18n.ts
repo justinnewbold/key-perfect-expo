@@ -43,7 +43,7 @@ type TranslationKeys =
   | 'app.name'
   | 'home.welcome'
   | 'home.quickPlay'
-  | 'home.continueLearnig'
+  | 'home.continueLearning'
   | 'home.gameModes'
   | 'home.seeAll'
   | 'practice.title'
@@ -103,7 +103,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'Welcome back!',
     'home.quickPlay': 'Quick Play',
-    'home.continueLearnig': 'Continue Learning',
+    'home.continueLearning': 'Continue Learning',
     'home.gameModes': 'Game Modes',
     'home.seeAll': 'See all',
     'practice.title': 'Practice Mode',
@@ -162,7 +162,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': '¡Bienvenido!',
     'home.quickPlay': 'Juego Rápido',
-    'home.continueLearnig': 'Continuar Aprendiendo',
+    'home.continueLearning': 'Continuar Aprendiendo',
     'home.gameModes': 'Modos de Juego',
     'home.seeAll': 'Ver todo',
     'practice.title': 'Modo Práctica',
@@ -221,7 +221,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'Bienvenue !',
     'home.quickPlay': 'Jeu Rapide',
-    'home.continueLearnig': "Continuer l'Apprentissage",
+    'home.continueLearning': "Continuer l'Apprentissage",
     'home.gameModes': 'Modes de Jeu',
     'home.seeAll': 'Voir tout',
     'practice.title': 'Mode Pratique',
@@ -280,7 +280,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'Willkommen zurück!',
     'home.quickPlay': 'Schnellspiel',
-    'home.continueLearnig': 'Lernen Fortsetzen',
+    'home.continueLearning': 'Lernen Fortsetzen',
     'home.gameModes': 'Spielmodi',
     'home.seeAll': 'Alle anzeigen',
     'practice.title': 'Übungsmodus',
@@ -339,7 +339,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'おかえりなさい！',
     'home.quickPlay': 'クイックプレイ',
-    'home.continueLearnig': '学習を続ける',
+    'home.continueLearning': '学習を続ける',
     'home.gameModes': 'ゲームモード',
     'home.seeAll': 'すべて見る',
     'practice.title': '練習モード',
@@ -398,7 +398,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': '欢迎回来！',
     'home.quickPlay': '快速游戏',
-    'home.continueLearnig': '继续学习',
+    'home.continueLearning': '继续学习',
     'home.gameModes': '游戏模式',
     'home.seeAll': '查看全部',
     'practice.title': '练习模式',
@@ -457,7 +457,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'Bem-vindo!',
     'home.quickPlay': 'Jogo Rápido',
-    'home.continueLearnig': 'Continuar Aprendendo',
+    'home.continueLearning': 'Continuar Aprendendo',
     'home.gameModes': 'Modos de Jogo',
     'home.seeAll': 'Ver tudo',
     'practice.title': 'Modo Prática',
@@ -516,7 +516,7 @@ const translations: Record<SupportedLanguage, Record<TranslationKeys, string>> =
     'app.name': 'Key Perfect',
     'home.welcome': 'Bentornato!',
     'home.quickPlay': 'Gioco Rapido',
-    'home.continueLearnig': 'Continua ad Apprendere',
+    'home.continueLearning': 'Continua ad Apprendere',
     'home.gameModes': 'Modalità di Gioco',
     'home.seeAll': 'Vedi tutto',
     'practice.title': 'Modalità Pratica',

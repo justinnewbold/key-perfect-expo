@@ -16,7 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import { COLORS, SPACING, BORDER_RADIUS, INSTRUMENTS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
-import { Instrument, UserSettings } from '../types';
+import { Instrument, UserSettings, LEVELS, ACHIEVEMENTS } from '../types';
 import { clearAllData } from '../utils/storage';
 
 // Settings presets
@@ -134,8 +134,14 @@ export default function SettingsScreen() {
 
       try {
         const parsed = JSON.parse(clipboardContent);
-        // Validate it has expected fields
-        if (typeof parsed.volume === 'number' || typeof parsed.autoPlay === 'boolean') {
+        // Validate it has expected fields - require at least volume and autoPlay to be correct types
+        const isValidSettings =
+          typeof parsed === 'object' &&
+          parsed !== null &&
+          (parsed.volume === undefined || typeof parsed.volume === 'number') &&
+          (parsed.autoPlay === undefined || typeof parsed.autoPlay === 'boolean') &&
+          (parsed.instrument === undefined || typeof parsed.instrument === 'string');
+        if (isValidSettings && Object.keys(parsed).length > 0) {
           Alert.alert(
             'Import Settings?',
             'This will replace your current settings with the imported ones.',
@@ -474,11 +480,11 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Levels Completed</Text>
-            <Text style={styles.statValue}>{stats.levelsCompleted}/8</Text>
+            <Text style={styles.statValue}>{stats.levelsCompleted}/{LEVELS.length}</Text>
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Achievements</Text>
-            <Text style={styles.statValue}>{stats.achievements.length}/12</Text>
+            <Text style={styles.statValue}>{stats.achievements.length}/{ACHIEVEMENTS.length}</Text>
           </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Total Correct</Text>
