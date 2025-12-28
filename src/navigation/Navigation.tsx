@@ -17,6 +17,8 @@ import SettingsScreen from '../screens/SettingsScreen';
 import GameModesListScreen from '../screens/GameModesListScreen';
 import GameModeScreen from '../screens/GameModeScreen';
 import WeakAreasPracticeScreen from '../screens/WeakAreasPracticeScreen';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
+import SingBackScreen from '../screens/SingBackScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -32,6 +34,8 @@ function HomeStack() {
       <Stack.Screen name="GameMode" component={GameModeScreen} />
       <Stack.Screen name="WeakAreas" component={WeakAreasPracticeScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+      <Stack.Screen name="SingBack" component={SingBackScreen} />
     </Stack.Navigator>
   );
 }

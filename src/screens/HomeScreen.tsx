@@ -159,6 +159,26 @@ export default function HomeScreen() {
               <Ionicons name="fitness-outline" size={32} color={COLORS.error} />
               <Text style={styles.quickPlayLabel}>Weak Areas</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickPlayCard, { backgroundColor: '#9B59B6' + '30' }]}
+              onPress={() => navigation.navigate('SingBack')}
+              accessibilityLabel="Sing Back Mode"
+              accessibilityRole="button"
+              accessibilityHint="Listen and sing notes back to train your voice"
+            >
+              <Ionicons name="mic-outline" size={32} color="#9B59B6" />
+              <Text style={styles.quickPlayLabel}>Sing Back</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickPlayCard, { backgroundColor: '#F39C12' + '30' }]}
+              onPress={() => navigation.navigate('Leaderboard')}
+              accessibilityLabel="Leaderboards and Social"
+              accessibilityRole="button"
+              accessibilityHint="View rankings and challenge friends"
+            >
+              <Ionicons name="trophy-outline" size={32} color="#F39C12" />
+              <Text style={styles.quickPlayLabel}>Social</Text>
+            </TouchableOpacity>
           </View>
         </GlassCard>
 
