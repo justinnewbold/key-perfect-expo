@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
@@ -34,7 +34,7 @@ import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../
 
 const { width } = Dimensions.get('window');
 
-type ActiveMode = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | 'progressions' | 'inversions' | 'reverse' | null;
+type ModeId = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | 'progressions' | 'inversions' | 'reverse';
 
 interface SpeedGameState {
   score: number;
@@ -96,12 +96,15 @@ interface ReverseGameState {
   isCorrect: boolean | null;
 }
 
-export default function GameModesScreen() {
+export default function GameModeScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const modeId = route.params?.mode as ModeId;
+
   const { recordAnswer, addXP, updateStats, stats, settings, playNote, playChord } = useApp();
 
-  const [activeMode, setActiveMode] = useState<ActiveMode>(null);
-  
+  const [isActive, setIsActive] = useState(false);
+
   // Speed Mode
   const [speedState, setSpeedState] = useState<SpeedGameState | null>(null);
   const [speedAnswerState, setSpeedAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
@@ -137,16 +140,20 @@ export default function GameModesScreen() {
   const [reverseState, setReverseState] = useState<ReverseGameState | null>(null);
   const [reverseAnswerState, setReverseAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
   // Check if daily challenge is already completed today
   useEffect(() => {
     const checkDailyChallenge = async () => {
-      const completed = await isDailyChallengeCompletedToday();
-      setDailyAlreadyDone(completed);
+      try {
+        const completed = await isDailyChallengeCompletedToday();
+        setDailyAlreadyDone(completed);
+      } catch (error) {
+        console.error('Error checking daily challenge:', error);
+      }
     };
-    checkDailyChallenge();
-  }, []);
+    if (modeId === 'daily') {
+      checkDailyChallenge();
+    }
+  }, [modeId]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -158,9 +165,16 @@ export default function GameModesScreen() {
     };
   }, []);
 
-  // Speed Mode Timer - only depend on activeMode to avoid creating multiple intervals
+  // Start the game mode on mount
   useEffect(() => {
-    if (activeMode === 'speed') {
+    if (!isActive && modeId) {
+      startGameMode(modeId);
+    }
+  }, [modeId]);
+
+  // Speed Mode Timer
+  useEffect(() => {
+    if (isActive && modeId === 'speed' && speedState && speedState.timeLeft > 0) {
       speedTimerRef.current = setInterval(() => {
         setSpeedState(prev => {
           if (!prev) return prev;
@@ -182,7 +196,37 @@ export default function GameModesScreen() {
         }
       };
     }
-  }, [activeMode]);
+  }, [isActive, modeId, speedState?.timeLeft === 30]); // Only restart timer when game starts (timeLeft === 30)
+
+  const startGameMode = (mode: ModeId) => {
+    setIsActive(true);
+    switch (mode) {
+      case 'speed':
+        startSpeedMode();
+        break;
+      case 'survival':
+        startSurvivalMode();
+        break;
+      case 'daily':
+        startDailyChallenge();
+        break;
+      case 'intervals':
+        startIntervalsMode();
+        break;
+      case 'scales':
+        startScalesMode();
+        break;
+      case 'progressions':
+        startProgressionsMode();
+        break;
+      case 'inversions':
+        startInversionsMode();
+        break;
+      case 'reverse':
+        startReverseMode();
+        break;
+    }
+  };
 
   // Start Speed Mode
   const startSpeedMode = () => {
@@ -197,7 +241,6 @@ export default function GameModesScreen() {
       timeLeft: 30,
     });
     setSpeedAnswerState('default');
-    setActiveMode('speed');
   };
 
   // Speed Mode Answer
@@ -214,7 +257,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, speedState.currentItem, 'note');
+    try {
+      await recordAnswer(isCorrect, speedState.currentItem, 'note');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const items = ALL_NOTES;
@@ -234,10 +281,13 @@ export default function GameModesScreen() {
   // End Speed Mode
   const endSpeedMode = async () => {
     if (speedState && speedState.score > stats.speedModeHighScore) {
-      await updateStats({ speedModeHighScore: speedState.score });
+      try {
+        await updateStats({ speedModeHighScore: speedState.score });
+      } catch (error) {
+        console.error('Error updating stats:', error);
+      }
     }
-    setActiveMode(null);
-    setSpeedState(null);
+    navigation.goBack();
   };
 
   // Start Survival Mode
@@ -254,7 +304,6 @@ export default function GameModesScreen() {
       level: 1,
     });
     setSurvivalAnswerState('default');
-    setActiveMode('survival');
   };
 
   // Survival Mode Answer
@@ -271,7 +320,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, survivalState.currentItem, 'note');
+    try {
+      await recordAnswer(isCorrect, survivalState.currentItem, 'note');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const newLives = survivalState.lives - (isCorrect ? 0 : 1);
@@ -281,7 +334,7 @@ export default function GameModesScreen() {
       if (newLives === 0) {
         // Game over
         if (newScore > stats.survivalModeHighScore) {
-          updateStats({ survivalModeHighScore: newScore });
+          updateStats({ survivalModeHighScore: newScore }).catch(console.error);
         }
         setSurvivalState(prev => prev ? { ...prev, lives: 0, score: newScore } : prev);
         return;
@@ -318,7 +371,6 @@ export default function GameModesScreen() {
       options,
     });
     setIntervalAnswerState('default');
-    setActiveMode('intervals');
   };
 
   // Intervals Mode Answer
@@ -335,7 +387,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, intervalState.currentInterval.name, 'interval');
+    try {
+      await recordAnswer(isCorrect, intervalState.currentInterval.name, 'interval');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const shuffledIntervals = shuffleArray([...INTERVALS]);
@@ -367,7 +423,6 @@ export default function GameModesScreen() {
       options,
     });
     setDailyAnswerState('default');
-    setActiveMode('daily');
   };
 
   // Daily Challenge Answer
@@ -384,7 +439,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, dailyState.currentItem, 'note');
+    try {
+      await recordAnswer(isCorrect, dailyState.currentItem, 'note');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     const newScore = dailyState.score + (isCorrect ? 1 : 0);
     const newAttempts = dailyState.attempts + 1;
@@ -392,14 +451,18 @@ export default function GameModesScreen() {
     // Check if challenge is complete (10 correct answers)
     if (newScore >= dailyState.requiredCorrect) {
       setTimeout(async () => {
-        await addXP(DAILY_CHALLENGE_BONUS);
-        await updateStats({
-          dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
-        });
-        await markDailyChallengeCompleted();
-        setDailyCompleted(true);
-        setDailyAlreadyDone(true);
-        setDailyState(null);
+        try {
+          await addXP(DAILY_CHALLENGE_BONUS);
+          await updateStats({
+            dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
+          });
+          await markDailyChallengeCompleted();
+          setDailyCompleted(true);
+          setDailyAlreadyDone(true);
+          setDailyState(null);
+        } catch (error) {
+          console.error('Error completing daily challenge:', error);
+        }
       }, 500);
       return;
     }
@@ -424,7 +487,11 @@ export default function GameModesScreen() {
   const playDailySound = async () => {
     if (dailyState) {
       safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
-      await playNote(dailyState.currentItem);
+      try {
+        await playNote(dailyState.currentItem);
+      } catch (error) {
+        console.error('Error playing sound:', error);
+      }
     }
   };
 
@@ -441,7 +508,6 @@ export default function GameModesScreen() {
       options,
     });
     setScalesAnswerState('default');
-    setActiveMode('scales');
   };
 
   // Scales Mode Answer
@@ -458,7 +524,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, scalesState.currentScale.name, 'scale');
+    try {
+      await recordAnswer(isCorrect, scalesState.currentScale.name, 'scale');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const shuffledScales = shuffleArray([...SCALES]);
@@ -484,11 +554,15 @@ export default function GameModesScreen() {
       const rootNote = 'C';
       const rootIndex = ALL_NOTES.indexOf(rootNote);
 
-      for (const interval of scalesState.currentScale.intervals) {
-        const noteIndex = (rootIndex + interval) % 12;
-        const octave = 4 + Math.floor((rootIndex + interval) / 12);
-        await playNote(ALL_NOTES[noteIndex], octave, 0.25);
-        await new Promise(resolve => setTimeout(resolve, 100));
+      try {
+        for (const interval of scalesState.currentScale.intervals) {
+          const noteIndex = (rootIndex + interval) % 12;
+          const octave = 4 + Math.floor((rootIndex + interval) / 12);
+          await playNote(ALL_NOTES[noteIndex], octave, 0.25);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error('Error playing scale:', error);
       }
     }
   };
@@ -506,7 +580,6 @@ export default function GameModesScreen() {
       options,
     });
     setProgressionsAnswerState('default');
-    setActiveMode('progressions');
   };
 
   // Play Progression Sound
@@ -524,13 +597,17 @@ export default function GameModesScreen() {
         'vii': { root: 'B', type: 'diminished' },
       };
 
-      const numerals = progressionsState.currentProgression.numerals.split('-');
-      for (const numeral of numerals) {
-        const chord = numeralToChord[numeral];
-        if (chord) {
-          await playChord(chord.root, chord.type);
-          await new Promise(resolve => setTimeout(resolve, 300));
+      try {
+        const numerals = progressionsState.currentProgression.numerals.split('-');
+        for (const numeral of numerals) {
+          const chord = numeralToChord[numeral];
+          if (chord) {
+            await playChord(chord.root, chord.type);
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
+      } catch (error) {
+        console.error('Error playing progression:', error);
       }
     }
   };
@@ -549,7 +626,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, progressionsState.currentProgression.name, 'chord');
+    try {
+      await recordAnswer(isCorrect, progressionsState.currentProgression.name, 'chord');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const shuffledProgressions = shuffleArray([...PROGRESSIONS]);
@@ -582,7 +663,6 @@ export default function GameModesScreen() {
       options: shuffleArray([...inversions]),
     });
     setInversionsAnswerState('default');
-    setActiveMode('inversions');
   };
 
   // Play Inversion Sound
@@ -608,11 +688,15 @@ export default function GameModesScreen() {
         playIntervals = [playIntervals[2], playIntervals[0] + 12, playIntervals[1] + 12];
       }
 
-      // Play the chord with inversion
-      for (const interval of playIntervals) {
-        const noteIndex = (rootIndex + interval) % 12;
-        const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
-        await playNote(ALL_NOTES[noteIndex], noteOctave, 0.5);
+      try {
+        // Play the chord with inversion
+        for (const interval of playIntervals) {
+          const noteIndex = (rootIndex + interval) % 12;
+          const noteOctave = octave + Math.floor((rootIndex + interval) / 12);
+          await playNote(ALL_NOTES[noteIndex], noteOctave, 0.5);
+        }
+      } catch (error) {
+        console.error('Error playing inversion:', error);
       }
     }
   };
@@ -631,7 +715,11 @@ export default function GameModesScreen() {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
 
-    await recordAnswer(isCorrect, `${inversionsState.currentChord} ${inversionsState.currentInversion}`, 'chord');
+    try {
+      await recordAnswer(isCorrect, `${inversionsState.currentChord} ${inversionsState.currentInversion}`, 'chord');
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const chords = [...MAJOR_CHORDS, ...MINOR_CHORDS.slice(0, 4)];
@@ -664,7 +752,6 @@ export default function GameModesScreen() {
       isCorrect: null,
     });
     setReverseAnswerState('default');
-    setActiveMode('reverse');
   };
 
   // Play the target in Reverse Mode
@@ -673,14 +760,18 @@ export default function GameModesScreen() {
       safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
       const item = reverseState.targetItem;
 
-      if (item.includes(' ')) {
-        // It's a chord
-        const parts = item.split(' ');
-        const root = parts[0];
-        const type = parts.slice(1).join(' ').toLowerCase();
-        await playChord(root, type);
-      } else {
-        await playNote(item);
+      try {
+        if (item.includes(' ')) {
+          // It's a chord
+          const parts = item.split(' ');
+          const root = parts[0];
+          const type = parts.slice(1).join(' ').toLowerCase();
+          await playChord(root, type);
+        } else {
+          await playNote(item);
+        }
+      } catch (error) {
+        console.error('Error playing sound:', error);
       }
 
       setReverseState(prev => prev ? { ...prev, hasPlayed: true } : prev);
@@ -703,7 +794,11 @@ export default function GameModesScreen() {
     }
 
     const type = reverseState.targetItem.includes(' ') ? 'chord' : 'note';
-    await recordAnswer(isCorrect, reverseState.targetItem, type);
+    try {
+      await recordAnswer(isCorrect, reverseState.targetItem, type);
+    } catch (error) {
+      console.error('Error recording answer:', error);
+    }
 
     setTimeout(() => {
       const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
@@ -725,98 +820,39 @@ export default function GameModesScreen() {
   const playSound = async () => {
     safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
 
-    if (activeMode === 'speed' && speedState) {
-      await playNote(speedState.currentItem);
-    } else if (activeMode === 'survival' && survivalState) {
-      // Survival mode can have notes or chords at higher levels
-      const item = survivalState.currentItem;
-      if (item.includes(' ')) {
-        // It's a chord like "C Major"
-        const parts = item.split(' ');
-        const root = parts[0];
-        const type = parts.slice(1).join(' ').toLowerCase();
-        await playChord(root, type);
-      } else {
-        await playNote(item);
+    try {
+      if (modeId === 'speed' && speedState) {
+        await playNote(speedState.currentItem);
+      } else if (modeId === 'survival' && survivalState) {
+        // Survival mode can have notes or chords at higher levels
+        const item = survivalState.currentItem;
+        if (item.includes(' ')) {
+          // It's a chord like "C Major"
+          const parts = item.split(' ');
+          const root = parts[0];
+          const type = parts.slice(1).join(' ').toLowerCase();
+          await playChord(root, type);
+        } else {
+          await playNote(item);
+        }
+      } else if (modeId === 'intervals' && intervalState) {
+        // Play the interval (root note and then the interval note)
+        const rootNote = 'C';
+        await playNote(rootNote);
+        // Play second note after a short delay
+        setTimeout(async () => {
+          const semitones = intervalState.currentInterval.semitones;
+          const noteIndex = (ALL_NOTES.indexOf(rootNote) + semitones) % 12;
+          await playNote(ALL_NOTES[noteIndex]);
+        }, 500);
       }
-    } else if (activeMode === 'intervals' && intervalState) {
-      // Play the interval (root note and then the interval note)
-      const rootNote = 'C';
-      await playNote(rootNote);
-      // Play second note after a short delay
-      setTimeout(async () => {
-        const semitones = intervalState.currentInterval.semitones;
-        const noteIndex = (ALL_NOTES.indexOf(rootNote) + semitones) % 12;
-        await playNote(ALL_NOTES[noteIndex]);
-      }, 500);
+    } catch (error) {
+      console.error('Error playing sound:', error);
     }
   };
 
-  // Render Mode Selection
-  if (!activeMode) {
-    return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <Text style={styles.title}>Game Modes</Text>
-          </View>
-
-          <View style={styles.modesGrid}>
-            {GAME_MODES.map((mode) => (
-              <TouchableOpacity
-                key={mode.id}
-                style={[styles.modeCard, { borderColor: mode.color + '40' }]}
-                onPress={() => {
-                  if (mode.id === 'speed') startSpeedMode();
-                  else if (mode.id === 'survival') startSurvivalMode();
-                  else if (mode.id === 'intervals') startIntervalsMode();
-                  else if (mode.id === 'daily') startDailyChallenge();
-                  else if (mode.id === 'scales') startScalesMode();
-                  else if (mode.id === 'progressions') startProgressionsMode();
-                  else if (mode.id === 'inversions') startInversionsMode();
-                  else if (mode.id === 'reverse') startReverseMode();
-                }}
-              >
-                <View style={[styles.modeIcon, { backgroundColor: mode.color + '30' }]}>
-                  <Ionicons name={mode.icon as any} size={32} color={mode.color} />
-                </View>
-                <Text style={styles.modeName}>{mode.name}</Text>
-                <Text style={styles.modeDesc}>{mode.description}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* High Scores */}
-          <GlassCard style={styles.highScoresCard}>
-            <Text style={styles.highScoresTitle}>🏆 High Scores</Text>
-            <View style={styles.highScoresRow}>
-              <View style={styles.highScoreItem}>
-                <Text style={styles.highScoreValue}>{stats.speedModeHighScore}</Text>
-                <Text style={styles.highScoreLabel}>Speed</Text>
-              </View>
-              <View style={styles.highScoreItem}>
-                <Text style={styles.highScoreValue}>{stats.survivalModeHighScore}</Text>
-                <Text style={styles.highScoreLabel}>Survival</Text>
-              </View>
-              <View style={styles.highScoreItem}>
-                <Text style={styles.highScoreValue}>{stats.dailyChallengesCompleted}</Text>
-                <Text style={styles.highScoreLabel}>Daily</Text>
-              </View>
-            </View>
-          </GlassCard>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      </LinearGradient>
-    );
-  }
-
   // Render Speed Mode
-  if (activeMode === 'speed' && speedState) {
+  if (modeId === 'speed' && speedState) {
     if (speedState.timeLeft === 0) {
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
@@ -825,7 +861,7 @@ export default function GameModesScreen() {
             <Text style={styles.resultTitle}>Time's Up!</Text>
             <Text style={styles.resultScore}>Score: {speedState.score}</Text>
             {speedState.score > stats.speedModeHighScore && (
-              <Text style={styles.newHighScore}>🎉 New High Score!</Text>
+              <Text style={styles.newHighScore}>New High Score!</Text>
             )}
             <Button
               title="Play Again"
@@ -835,7 +871,7 @@ export default function GameModesScreen() {
               style={{ marginTop: SPACING.lg }}
             />
             <Button
-              title="Back to Modes"
+              title="Back"
               onPress={endSpeedMode}
               variant="secondary"
               size="lg"
@@ -878,7 +914,7 @@ export default function GameModesScreen() {
               } else if (speedAnswerState === 'incorrect' && option === speedState.currentItem) {
                 buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
               }
-              
+
               return (
                 <TouchableOpacity
                   key={option}
@@ -897,7 +933,7 @@ export default function GameModesScreen() {
   }
 
   // Render Survival Mode
-  if (activeMode === 'survival' && survivalState) {
+  if (modeId === 'survival' && survivalState) {
     if (survivalState.lives === 0) {
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
@@ -907,7 +943,7 @@ export default function GameModesScreen() {
             <Text style={styles.resultScore}>Score: {survivalState.score}</Text>
             <Text style={styles.resultLevel}>Level Reached: {survivalState.level}</Text>
             {survivalState.score > stats.survivalModeHighScore && (
-              <Text style={styles.newHighScore}>🎉 New High Score!</Text>
+              <Text style={styles.newHighScore}>New High Score!</Text>
             )}
             <Button
               title="Play Again"
@@ -917,8 +953,8 @@ export default function GameModesScreen() {
               style={{ marginTop: SPACING.lg }}
             />
             <Button
-              title="Back to Modes"
-              onPress={() => setActiveMode(null)}
+              title="Back"
+              onPress={() => navigation.goBack()}
               variant="secondary"
               size="lg"
               style={{ marginTop: SPACING.sm }}
@@ -932,13 +968,13 @@ export default function GameModesScreen() {
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
         <View style={styles.gameContent}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => setActiveMode(null)}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.title}>Survival</Text>
             <View style={styles.livesBadge}>
               {[...Array(survivalState.lives)].map((_, i) => (
-                <Ionicons key={i} name="heart" size={20} color={COLORS.error} />
+                <Ionicons key={`heart-${i}`} name="heart" size={20} color={COLORS.error} />
               ))}
             </View>
           </View>
@@ -965,7 +1001,7 @@ export default function GameModesScreen() {
               } else if (survivalAnswerState === 'incorrect' && option === survivalState.currentItem) {
                 buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
               }
-              
+
               return (
                 <TouchableOpacity
                   key={option}
@@ -984,16 +1020,16 @@ export default function GameModesScreen() {
   }
 
   // Render Intervals Mode
-  if (activeMode === 'intervals' && intervalState) {
-    const accuracy = intervalState.attempts > 0 
-      ? Math.round((intervalState.score / intervalState.attempts) * 100) 
+  if (modeId === 'intervals' && intervalState) {
+    const accuracy = intervalState.attempts > 0
+      ? Math.round((intervalState.score / intervalState.attempts) * 100)
       : 0;
 
     return (
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
         <View style={styles.gameContent}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => setActiveMode(null)}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.title}>Intervals</Text>
@@ -1023,7 +1059,7 @@ export default function GameModesScreen() {
               } else if (intervalAnswerState === 'incorrect' && interval.name === intervalState.currentInterval.name) {
                 buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
               }
-              
+
               return (
                 <TouchableOpacity
                   key={interval.name}
@@ -1042,77 +1078,8 @@ export default function GameModesScreen() {
     );
   }
 
-  // Render Scales Mode
-  if (activeMode === 'scales' && scalesState) {
-    const accuracy = scalesState.attempts > 0
-      ? Math.round((scalesState.score / scalesState.attempts) * 100)
-      : 0;
-
-    return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
-        <View style={styles.gameContent}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => setActiveMode(null)}
-              accessibilityLabel="Close scales mode"
-              accessibilityRole="button"
-            >
-              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Scales</Text>
-            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
-          </View>
-
-          <Text style={styles.scoreText}>
-            Score: {scalesState.score} / {scalesState.attempts}
-          </Text>
-
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={playScaleSound}
-            accessibilityLabel="Play scale"
-            accessibilityHint="Plays the scale notes in sequence"
-          >
-            <LinearGradient
-              colors={[COLORS.scales, COLORS.scales + 'CC']}
-              style={styles.playButtonGradient}
-            >
-              <Ionicons name="play" size={48} color={COLORS.textPrimary} />
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <Text style={styles.instruction}>Identify the scale</Text>
-
-          <View style={styles.intervalOptions}>
-            {scalesState.options.map((scale) => {
-              let buttonStyle = styles.intervalButton;
-              if (scalesAnswerState === 'correct' && scale.name === scalesState.currentScale.name) {
-                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
-              } else if (scalesAnswerState === 'incorrect' && scale.name === scalesState.currentScale.name) {
-                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
-              }
-
-              return (
-                <TouchableOpacity
-                  key={scale.name}
-                  style={buttonStyle}
-                  onPress={() => handleScalesAnswer(scale)}
-                  disabled={scalesAnswerState !== 'default'}
-                  accessibilityLabel={`${scale.name} scale`}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.intervalName}>{scale.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      </LinearGradient>
-    );
-  }
-
   // Render Daily Challenge
-  if (activeMode === 'daily') {
+  if (modeId === 'daily') {
     // Show "already completed today" message
     if (dailyAlreadyDone && !dailyState && !dailyCompleted) {
       return (
@@ -1123,8 +1090,8 @@ export default function GameModesScreen() {
             <Text style={styles.resultScore}>Come back tomorrow for a new challenge</Text>
             <Text style={styles.resultLevel}>You've already earned today's bonus XP</Text>
             <Button
-              title="Back to Modes"
-              onPress={() => setActiveMode(null)}
+              title="Back"
+              onPress={() => navigation.goBack()}
               variant="primary"
               size="lg"
               style={{ marginTop: SPACING.lg }}
@@ -1142,11 +1109,8 @@ export default function GameModesScreen() {
             <Text style={styles.resultTitle}>Daily Complete!</Text>
             <Text style={styles.resultScore}>+{DAILY_CHALLENGE_BONUS} XP Bonus!</Text>
             <Button
-              title="Back to Modes"
-              onPress={() => {
-                setActiveMode(null);
-                setDailyCompleted(false);
-              }}
+              title="Back"
+              onPress={() => navigation.goBack()}
               variant="primary"
               size="lg"
               style={{ marginTop: SPACING.lg }}
@@ -1161,10 +1125,7 @@ export default function GameModesScreen() {
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
           <View style={styles.gameContent}>
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => {
-                setActiveMode(null);
-                setDailyState(null);
-              }}>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
                 <Ionicons name="close" size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
               <Text style={styles.title}>Daily Challenge</Text>
@@ -1215,8 +1176,66 @@ export default function GameModesScreen() {
     }
   }
 
+  // Render Scales Mode
+  if (modeId === 'scales' && scalesState) {
+    const accuracy = scalesState.attempts > 0
+      ? Math.round((scalesState.score / scalesState.attempts) * 100)
+      : 0;
+
+    return (
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.gameContent}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Scales</Text>
+            <Text style={styles.accuracyBadge}>{accuracy}%</Text>
+          </View>
+
+          <Text style={styles.scoreText}>
+            Score: {scalesState.score} / {scalesState.attempts}
+          </Text>
+
+          <TouchableOpacity style={styles.playButton} onPress={playScaleSound}>
+            <LinearGradient
+              colors={[COLORS.scales, COLORS.scales + 'CC']}
+              style={styles.playButtonGradient}
+            >
+              <Ionicons name="play" size={48} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={styles.instruction}>Identify the scale</Text>
+
+          <View style={styles.intervalOptions}>
+            {scalesState.options.map((scale) => {
+              let buttonStyle = styles.intervalButton;
+              if (scalesAnswerState === 'correct' && scale.name === scalesState.currentScale.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (scalesAnswerState === 'incorrect' && scale.name === scalesState.currentScale.name) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={scale.name}
+                  style={buttonStyle}
+                  onPress={() => handleScalesAnswer(scale)}
+                  disabled={scalesAnswerState !== 'default'}
+                >
+                  <Text style={styles.intervalName}>{scale.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </LinearGradient>
+    );
+  }
+
   // Render Progressions Mode
-  if (activeMode === 'progressions' && progressionsState) {
+  if (modeId === 'progressions' && progressionsState) {
     const accuracy = progressionsState.attempts > 0
       ? Math.round((progressionsState.score / progressionsState.attempts) * 100)
       : 0;
@@ -1225,11 +1244,7 @@ export default function GameModesScreen() {
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
         <View style={styles.gameContent}>
           <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => setActiveMode(null)}
-              accessibilityLabel="Close progressions mode"
-              accessibilityRole="button"
-            >
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.title}>Progressions</Text>
@@ -1240,12 +1255,7 @@ export default function GameModesScreen() {
             Score: {progressionsState.score} / {progressionsState.attempts}
           </Text>
 
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={playProgressionSound}
-            accessibilityLabel="Play chord progression"
-            accessibilityHint="Plays the chord progression to identify"
-          >
+          <TouchableOpacity style={styles.playButton} onPress={playProgressionSound}>
             <LinearGradient
               colors={[COLORS.progressions, COLORS.progressions + 'CC']}
               style={styles.playButtonGradient}
@@ -1271,8 +1281,6 @@ export default function GameModesScreen() {
                   style={buttonStyle}
                   onPress={() => handleProgressionsAnswer(progression)}
                   disabled={progressionsAnswerState !== 'default'}
-                  accessibilityLabel={`${progression.name} progression`}
-                  accessibilityRole="button"
                 >
                   <Text style={styles.intervalName}>{progression.numerals}</Text>
                   <Text style={styles.intervalHint}>{progression.description}</Text>
@@ -1286,7 +1294,7 @@ export default function GameModesScreen() {
   }
 
   // Render Inversions Mode
-  if (activeMode === 'inversions' && inversionsState) {
+  if (modeId === 'inversions' && inversionsState) {
     const accuracy = inversionsState.attempts > 0
       ? Math.round((inversionsState.score / inversionsState.attempts) * 100)
       : 0;
@@ -1301,11 +1309,7 @@ export default function GameModesScreen() {
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
         <View style={styles.gameContent}>
           <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => setActiveMode(null)}
-              accessibilityLabel="Close inversions mode"
-              accessibilityRole="button"
-            >
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.title}>Inversions</Text>
@@ -1318,12 +1322,7 @@ export default function GameModesScreen() {
 
           <Text style={styles.chordLabel}>{inversionsState.currentChord}</Text>
 
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={playInversionSound}
-            accessibilityLabel="Play chord inversion"
-            accessibilityHint="Plays the chord inversion to identify"
-          >
+          <TouchableOpacity style={styles.playButton} onPress={playInversionSound}>
             <LinearGradient
               colors={[COLORS.inversions, COLORS.inversions + 'CC']}
               style={styles.playButtonGradient}
@@ -1349,8 +1348,6 @@ export default function GameModesScreen() {
                   style={buttonStyle}
                   onPress={() => handleInversionsAnswer(inversion)}
                   disabled={inversionsAnswerState !== 'default'}
-                  accessibilityLabel={inversionLabels[inversion]}
-                  accessibilityRole="button"
                 >
                   <Text style={styles.intervalName}>{inversionLabels[inversion]}</Text>
                 </TouchableOpacity>
@@ -1363,7 +1360,7 @@ export default function GameModesScreen() {
   }
 
   // Render Reverse Mode
-  if (activeMode === 'reverse' && reverseState) {
+  if (modeId === 'reverse' && reverseState) {
     const accuracy = reverseState.attempts > 0
       ? Math.round((reverseState.score / reverseState.attempts) * 100)
       : 0;
@@ -1372,11 +1369,7 @@ export default function GameModesScreen() {
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
         <View style={styles.gameContent}>
           <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => setActiveMode(null)}
-              accessibilityLabel="Close reverse mode"
-              accessibilityRole="button"
-            >
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <Ionicons name="close" size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.title}>Reverse Mode</Text>
@@ -1392,12 +1385,7 @@ export default function GameModesScreen() {
             <Text style={styles.targetItem}>{reverseState.targetItem}</Text>
           </GlassCard>
 
-          <TouchableOpacity
-            style={styles.playButton}
-            onPress={playReverseTarget}
-            accessibilityLabel="Play target sound"
-            accessibilityHint="Plays the target sound you need to match"
-          >
+          <TouchableOpacity style={styles.playButton} onPress={playReverseTarget}>
             <LinearGradient
               colors={[COLORS.reverseMode, COLORS.reverseMode + 'CC']}
               style={styles.playButtonGradient}
@@ -1425,19 +1413,19 @@ export default function GameModesScreen() {
     );
   }
 
-  return null;
+  // Loading or fallback
+  return (
+    <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.resultContainer}>
+        <Text style={styles.resultTitle}>Loading...</Text>
+      </View>
+    </LinearGradient>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: SPACING.md,
-    paddingTop: 60,
   },
   gameContent: {
     flex: 1,
@@ -1454,62 +1442,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  modesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  modeCard: {
-    width: (width - SPACING.md * 2 - SPACING.sm) / 2,
-    backgroundColor: COLORS.glass,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    padding: SPACING.md,
-    ...SHADOWS.small,
-  },
-  modeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  modeName: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  modeDesc: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-  },
-  highScoresCard: {
-    marginTop: SPACING.lg,
-  },
-  highScoresTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: SPACING.md,
-  },
-  highScoresRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  highScoreItem: {
-    alignItems: 'center',
-  },
-  highScoreValue: {
-    color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  highScoreLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
   },
   timerBadge: {
     backgroundColor: COLORS.speedMode,
@@ -1635,28 +1567,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   newHighScore: {
-    color: COLORS.warning,
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: SPACING.md,
-  },
-  dailyCard: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xl,
-  },
-  dailyTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: SPACING.md,
-  },
-  dailyDesc: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
-  },
-  dailyReward: {
     color: COLORS.warning,
     fontSize: 18,
     fontWeight: '600',
