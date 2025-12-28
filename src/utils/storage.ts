@@ -364,3 +364,21 @@ export async function clearAllData(): Promise<void> {
     console.error('Error clearing data:', error);
   }
 }
+
+// Clear only stats
+export async function clearStats(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.STATS);
+  } catch (error) {
+    console.error('Error clearing stats:', error);
+  }
+}
+
+// Clear only settings
+export async function clearSettings(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEYS.SETTINGS);
+  } catch (error) {
+    console.error('Error clearing settings:', error);
+  }
+}

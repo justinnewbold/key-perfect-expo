@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Modal,
   Dimensions,
@@ -13,7 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
-import { INTERVALS, SCALES, PROGRESSIONS, ALL_NOTES } from '../types';
+import { INTERVALS, SCALES, PROGRESSIONS, ALL_NOTES, CHORD_INTERVALS, ChordType } from '../types';
+import { useApp } from '../context/AppContext';
+import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -64,7 +66,53 @@ const LEARN_SECTIONS = [
 
 export default function LearnScreen() {
   const navigation = useNavigation<any>();
+  const { playNote, playChord } = useApp();
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [playingItem, setPlayingItem] = useState<string | null>(null);
+
+  const handlePlayNote = async (note: string) => {
+    setPlayingItem(note);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+    await playNote(note);
+    setTimeout(() => setPlayingItem(null), 500);
+  };
+
+  const handlePlayInterval = async (semitones: number) => {
+    setPlayingItem(`interval-${semitones}`);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+    await playNote('C', 4);
+    setTimeout(async () => {
+      const noteIndex = semitones % 12;
+      const targetNote = ALL_NOTES[noteIndex];
+      await playNote(targetNote, semitones >= 12 ? 5 : 4);
+      setTimeout(() => setPlayingItem(null), 500);
+    }, 400);
+  };
+
+  const handlePlayScale = async (intervals: number[]) => {
+    setPlayingItem(`scale-${intervals.join('-')}`);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+    for (let i = 0; i < Math.min(intervals.length, 8); i++) {
+      const noteIndex = intervals[i] % 12;
+      const targetNote = ALL_NOTES[noteIndex];
+      const octave = intervals[i] >= 12 ? 5 : 4;
+      await playNote(targetNote, octave, 0.3);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    setPlayingItem(null);
+  };
+
+  const handlePlayProgression = async (numerals: string) => {
+    setPlayingItem(`prog-${numerals}`);
+    safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+    // Simplified - play root notes of common progression
+    const chordRoots = ['C', 'F', 'G', 'C'];
+    for (const root of chordRoots) {
+      await playChord(root, 'major', 4, 0.6);
+      await new Promise(resolve => setTimeout(resolve, 600));
+    }
+    setPlayingItem(null);
+  };
 
   const renderIntervals = () => (
     <View style={styles.modalContent}>
@@ -73,12 +121,10 @@ export default function LearnScreen() {
       
       <ScrollView style={styles.modalScroll}>
         {INTERVALS.map((interval, index) => (
-          <TouchableOpacity 
-            key={index} 
-            style={styles.intervalCard}
-            onPress={() => {
-              // Play interval
-            }}
+          <TouchableOpacity
+            key={index}
+            style={[styles.intervalCard, playingItem === `interval-${interval.semitones}` && styles.playingCard]}
+            onPress={() => handlePlayInterval(interval.semitones)}
           >
             <View style={styles.intervalHeader}>
               <View style={styles.intervalBadge}>
@@ -103,12 +149,10 @@ export default function LearnScreen() {
       
       <ScrollView style={styles.modalScroll}>
         {SCALES.map((scale, index) => (
-          <TouchableOpacity 
-            key={index} 
-            style={styles.scaleCard}
-            onPress={() => {
-              // Play scale
-            }}
+          <TouchableOpacity
+            key={index}
+            style={[styles.scaleCard, playingItem === `scale-${scale.intervals.join('-')}` && styles.playingCard]}
+            onPress={() => handlePlayScale(scale.intervals)}
           >
             <View style={styles.scaleHeader}>
               <Text style={styles.scaleName}>{scale.name}</Text>
@@ -134,12 +178,10 @@ export default function LearnScreen() {
       
       <ScrollView style={styles.modalScroll}>
         {PROGRESSIONS.map((prog, index) => (
-          <TouchableOpacity 
-            key={index} 
-            style={styles.progressionCard}
-            onPress={() => {
-              // Play progression
-            }}
+          <TouchableOpacity
+            key={index}
+            style={[styles.progressionCard, playingItem === `prog-${prog.numerals}` && styles.playingCard]}
+            onPress={() => handlePlayProgression(prog.numerals)}
           >
             <View style={styles.progressionHeader}>
               <Text style={styles.progressionName}>{prog.name}</Text>
@@ -177,10 +219,9 @@ export default function LearnScreen() {
                       { translateY: y },
                     ],
                   },
+                  playingItem === note && styles.playingNote,
                 ]}
-                onPress={() => {
-                  // Play note
-                }}
+                onPress={() => handlePlayNote(note)}
               >
                 <Text style={styles.circleNoteText}>{note}</Text>
               </TouchableOpacity>
@@ -271,10 +312,8 @@ export default function LearnScreen() {
           {['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((note) => (
             <TouchableOpacity
               key={note}
-              style={styles.whiteKey}
-              onPress={() => {
-                // Play note
-              }}
+              style={[styles.whiteKey, playingItem === note && styles.whiteKeyActive]}
+              onPress={() => handlePlayNote(note)}
             >
               <Text style={styles.whiteKeyText}>{note}</Text>
             </TouchableOpacity>
@@ -288,11 +327,10 @@ export default function LearnScreen() {
                 key={note}
                 style={[
                   styles.blackKey,
-                  { left: 30 + index * 42 + (index > 1 ? 42 : 0) }
+                  { left: 30 + index * 42 + (index > 1 ? 42 : 0) },
+                  playingItem === note && styles.blackKeyActive,
                 ]}
-                onPress={() => {
-                  // Play note
-                }}
+                onPress={() => handlePlayNote(note)}
               >
                 <Text style={styles.blackKeyText}>{note}</Text>
               </TouchableOpacity>
@@ -788,5 +826,19 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     lineHeight: 22,
+  },
+  playingCard: {
+    borderColor: COLORS.xpGradientStart,
+    backgroundColor: COLORS.xpGradientStart + '20',
+  },
+  playingNote: {
+    backgroundColor: COLORS.xpGradientStart,
+    borderColor: COLORS.xpGradientEnd,
+  },
+  whiteKeyActive: {
+    backgroundColor: COLORS.xpGradientStart + '40',
+  },
+  blackKeyActive: {
+    backgroundColor: COLORS.xpGradientStart,
   },
 });

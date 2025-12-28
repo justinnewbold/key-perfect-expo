@@ -1,21 +1,63 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Switch,
   Alert,
+  Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Clipboard from 'expo-clipboard';
 import { COLORS, SPACING, BORDER_RADIUS, INSTRUMENTS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
-import { Instrument } from '../types';
-import { clearAllData } from '../utils/storage';
+import { Instrument, UserSettings, DEFAULT_SETTINGS } from '../types';
+import { clearAllData, clearStats, clearSettings } from '../utils/storage';
+
+// Settings presets
+const PRESETS = {
+  beginner: {
+    name: 'Beginner',
+    icon: '🌱',
+    description: 'Easier settings for new players',
+    settings: {
+      autoPlay: true,
+      showHints: true,
+      hapticFeedback: true,
+      octaveRange: { min: 4, max: 4 },
+      playbackSpeed: 0.8,
+    } as Partial<UserSettings>,
+  },
+  intermediate: {
+    name: 'Intermediate',
+    icon: '🎯',
+    description: 'Balanced challenge',
+    settings: {
+      autoPlay: true,
+      showHints: false,
+      hapticFeedback: true,
+      octaveRange: { min: 3, max: 5 },
+      playbackSpeed: 1.0,
+    } as Partial<UserSettings>,
+  },
+  advanced: {
+    name: 'Advanced',
+    icon: '🏆',
+    description: 'Maximum challenge',
+    settings: {
+      autoPlay: false,
+      showHints: false,
+      hapticFeedback: true,
+      octaveRange: { min: 2, max: 6 },
+      playbackSpeed: 1.2,
+    } as Partial<UserSettings>,
+  },
+};
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -40,8 +82,8 @@ export default function SettingsScreen() {
       'This will delete all your progress, stats, and achievements. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reset', 
+        {
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
             await clearAllData();
@@ -50,6 +92,73 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const applyPreset = (presetKey: keyof typeof PRESETS) => {
+    const preset = PRESETS[presetKey];
+    Alert.alert(
+      `Apply ${preset.name} Preset?`,
+      preset.description,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Apply',
+          onPress: () => {
+            updateSettings(preset.settings);
+            Alert.alert('Success', `${preset.name} preset applied!`);
+          }
+        },
+      ]
+    );
+  };
+
+  const exportSettings = async () => {
+    try {
+      const exportData = JSON.stringify(settings, null, 2);
+      await Share.share({
+        message: `Key Perfect Settings:\n${exportData}`,
+        title: 'Export Settings',
+      });
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+    }
+  };
+
+  const importSettings = async () => {
+    try {
+      const clipboardContent = await Clipboard.getStringAsync();
+      if (!clipboardContent) {
+        Alert.alert('Error', 'Clipboard is empty. Copy settings JSON first.');
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(clipboardContent);
+        // Validate it has expected fields
+        if (typeof parsed.volume === 'number' || typeof parsed.autoPlay === 'boolean') {
+          Alert.alert(
+            'Import Settings?',
+            'This will replace your current settings with the imported ones.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Import',
+                onPress: () => {
+                  updateSettings(parsed);
+                  Alert.alert('Success', 'Settings imported!');
+                }
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Error', 'Invalid settings format in clipboard.');
+        }
+      } catch {
+        Alert.alert('Error', 'Could not parse clipboard content as settings JSON.');
+      }
+    } catch (error) {
+      console.error('Error importing settings:', error);
+    }
   };
 
   const selectedInstrument = INSTRUMENTS.find(i => i.id === settings.instrument);
@@ -72,6 +181,35 @@ export default function SettingsScreen() {
           <Text style={styles.title}>Settings</Text>
           <View style={{ width: 24 }} />
         </View>
+
+        {/* Quick Presets */}
+        <GlassCard style={styles.section}>
+          <Text style={styles.sectionTitle}>⚡ Quick Presets</Text>
+          <View style={styles.presetRow}>
+            {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map((key) => (
+              <TouchableOpacity
+                key={key}
+                style={styles.presetCard}
+                onPress={() => applyPreset(key)}
+                accessibilityLabel={`${PRESETS[key].name} preset`}
+                accessibilityRole="button"
+              >
+                <Text style={styles.presetIcon}>{PRESETS[key].icon}</Text>
+                <Text style={styles.presetName}>{PRESETS[key].name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.exportRow}>
+            <TouchableOpacity style={styles.exportButton} onPress={exportSettings}>
+              <Ionicons name="share-outline" size={18} color={COLORS.textSecondary} />
+              <Text style={styles.exportButtonText}>Export</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.exportButton} onPress={importSettings}>
+              <Ionicons name="download-outline" size={18} color={COLORS.textSecondary} />
+              <Text style={styles.exportButtonText}>Import</Text>
+            </TouchableOpacity>
+          </View>
+        </GlassCard>
 
         {/* Audio Settings */}
         <GlassCard style={styles.section}>
@@ -585,5 +723,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: SPACING.sm,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  presetCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  presetIcon: {
+    fontSize: 24,
+    marginBottom: SPACING.xs,
+  },
+  presetName: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  exportRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  exportButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  exportButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
   },
 });
