@@ -1,394 +1,509 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity,
-  Switch,
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   Alert,
+  Platform,
+  useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, INSTRUMENTS } from '../utils/theme';
+import Slider from '@react-native-community/slider';
+import * as Application from 'expo-application';
+import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
-import GlassCard from '../components/GlassCard';
-import { Instrument } from '../types';
+import { Instrument, ThemeId } from '../types';
+import IOSSettingsGroup from '../components/IOSSettingsGroup';
+import IOSSettingsRow from '../components/IOSSettingsRow';
+import IOSSegmentedControl from '../components/IOSSegmentedControl';
+import { safeHaptics } from '../utils/haptics';
+import { requestNotificationPermissions, areNotificationsEnabled, scheduleDailyReminder, cancelDailyReminders } from '../services/notifications';
+import { requestStoreReview, isStoreReviewAvailable } from '../services/storeReview';
+import { shareApp } from '../services/sharing';
 import { clearAllData } from '../utils/storage';
 
-export default function SettingsScreen() {
-  const navigation = useNavigation<any>();
-  const { settings, updateSettings, stats } = useApp();
-  const [showInstruments, setShowInstruments] = useState(false);
+const INSTRUMENTS: { id: Instrument; name: string }[] = [
+  { id: 'piano', name: 'Piano' },
+  { id: 'guitar', name: 'Guitar' },
+  { id: 'strings', name: 'Strings' },
+  { id: 'synth', name: 'Synth' },
+  { id: 'organ', name: 'Organ' },
+  { id: 'bass', name: 'Bass' },
+  { id: 'brass', name: 'Brass' },
+  { id: 'woodwind', name: 'Woodwind' },
+];
 
-  const handleVolumeChange = (increase: boolean) => {
-    const newVolume = increase 
-      ? Math.min(100, settings.volume + 10)
-      : Math.max(0, settings.volume - 10);
-    updateSettings({ volume: newVolume });
+const THEMES: { id: ThemeId; name: string; color: string }[] = [
+  { id: 'purple', name: 'Purple Dream', color: '#667eea' },
+  { id: 'ocean', name: 'Ocean Blue', color: '#0984e3' },
+  { id: 'sunset', name: 'Sunset Glow', color: '#e17055' },
+  { id: 'forest', name: 'Forest Green', color: '#00b894' },
+  { id: 'midnight', name: 'Midnight', color: '#2d3436' },
+];
+
+export default function SettingsScreen() {
+  const { settings, updateSettings, stats, resetStats } = useApp();
+  const systemColorScheme = useColorScheme();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [appVersion, setAppVersion] = useState('1.0.0');
+
+  useEffect(() => {
+    checkNotificationStatus();
+    getAppVersion();
+  }, []);
+
+  const checkNotificationStatus = async () => {
+    const enabled = await areNotificationsEnabled();
+    setNotificationsEnabled(enabled);
   };
 
-  const handleInstrumentSelect = (instrument: Instrument) => {
-    updateSettings({ instrument });
-    setShowInstruments(false);
+  const getAppVersion = async () => {
+    if (Platform.OS !== 'web') {
+      const version = Application.nativeApplicationVersion || '1.0.0';
+      const build = Application.nativeBuildVersion || '1';
+      setAppVersion(`${version} (${build})`);
+    }
+  };
+
+  const handleVolumeChange = (value: number) => {
+    updateSettings({ volume: Math.round(value) });
+  };
+
+  const handleInstrumentChange = (index: number) => {
+    safeHaptics.selectionAsync();
+    updateSettings({ instrument: INSTRUMENTS[index].id });
+  };
+
+  const handleThemeChange = (themeId: ThemeId) => {
+    safeHaptics.selectionAsync();
+    updateSettings({ theme: themeId });
+  };
+
+  const handleSystemThemeToggle = (value: boolean) => {
+    updateSettings({ useSystemTheme: value });
+    if (value) {
+      updateSettings({ darkMode: systemColorScheme === 'dark' });
+    }
+  };
+
+  const handleNotificationToggle = async (value: boolean) => {
+    if (value) {
+      const granted = await requestNotificationPermissions();
+      if (granted) {
+        await scheduleDailyReminder(settings.notifications?.dailyReminderTime || '09:00');
+        updateSettings({
+          notifications: { ...settings.notifications, dailyReminderEnabled: true },
+        });
+        setNotificationsEnabled(true);
+      } else {
+        Alert.alert(
+          'Notifications Disabled',
+          'Please enable notifications in your device settings to receive practice reminders.',
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      await cancelDailyReminders();
+      updateSettings({
+        notifications: { ...settings.notifications, dailyReminderEnabled: false },
+      });
+    }
+  };
+
+  const handleRateApp = async () => {
+    const available = await isStoreReviewAvailable();
+    if (available) {
+      await requestStoreReview();
+    } else {
+      Alert.alert('Thank You!', 'Rating is not available on this device.');
+    }
+  };
+
+  const handleShareApp = async () => {
+    await shareApp();
   };
 
   const handleResetProgress = () => {
     Alert.alert(
       'Reset Progress',
-      'This will delete all your progress, stats, and achievements. This cannot be undone.',
+      'Are you sure you want to reset all your progress? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reset', 
+        {
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await clearAllData();
-            Alert.alert('Success', 'All progress has been reset. Please restart the app.');
-          }
+            safeHaptics.warningPattern();
+            await resetStats();
+            Alert.alert('Progress Reset', 'All your progress has been reset.');
+          },
         },
       ]
     );
   };
 
-  const selectedInstrument = INSTRUMENTS.find(i => i.id === settings.instrument);
+  const handleClearAllData = () => {
+    Alert.alert(
+      'Clear All Data',
+      'This will delete all your data including settings, progress, and achievements. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            safeHaptics.gameOverPattern();
+            await clearAllData();
+            await resetStats();
+            Alert.alert('Data Cleared', 'All data has been deleted.');
+          },
+        },
+      ]
+    );
+  };
+
+  const currentInstrumentIndex = INSTRUMENTS.findIndex(i => i.id === settings.instrument);
 
   return (
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Settings</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        {/* Audio Settings */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>🔊 Audio</Text>
-          
-          {/* Volume */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="volume-high" size={24} color={COLORS.textPrimary} />
-              <Text style={styles.settingLabel}>Volume</Text>
+        {/* Audio Section */}
+        <IOSSettingsGroup title="Audio">
+          <View style={styles.sliderContainer}>
+            <View style={styles.sliderHeader}>
+              <View style={[styles.iconBadge, { backgroundColor: '#FF6B6B' }]}>
+                <Ionicons name="volume-high" size={18} color="#fff" />
+              </View>
+              <Text style={styles.sliderLabel}>Volume</Text>
+              <Text style={styles.sliderValue}>{settings.volume}%</Text>
             </View>
-            <View style={styles.volumeControl}>
-              <TouchableOpacity 
-                style={styles.volumeButton}
-                onPress={() => handleVolumeChange(false)}
-              >
-                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-              <Text style={styles.volumeValue}>{settings.volume}%</Text>
-              <TouchableOpacity 
-                style={styles.volumeButton}
-                onPress={() => handleVolumeChange(true)}
-              >
-                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
+            <Slider
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={100}
+              value={settings.volume}
+              onValueChange={handleVolumeChange}
+              minimumTrackTintColor={COLORS.xpGradientStart}
+              maximumTrackTintColor={COLORS.divider}
+              thumbTintColor={Platform.OS === 'android' ? COLORS.xpGradientStart : undefined}
+            />
           </View>
 
-          {/* Instrument */}
-          <TouchableOpacity 
-            style={styles.settingRow}
-            onPress={() => setShowInstruments(!showInstruments)}
-          >
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingIcon}>{selectedInstrument?.icon}</Text>
-              <Text style={styles.settingLabel}>Instrument</Text>
-            </View>
-            <View style={styles.settingValue}>
-              <Text style={styles.settingValueText}>{selectedInstrument?.name}</Text>
-              <Ionicons 
-                name={showInstruments ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color={COLORS.textSecondary} 
-              />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.separator} />
 
-          {showInstruments && (
-            <View style={styles.instrumentGrid}>
-              {INSTRUMENTS.map((instrument) => (
-                <TouchableOpacity
-                  key={instrument.id}
+          <View style={styles.instrumentContainer}>
+            <View style={styles.instrumentHeader}>
+              <View style={[styles.iconBadge, { backgroundColor: '#4ECDC4' }]}>
+                <Ionicons name="musical-note" size={18} color="#fff" />
+              </View>
+              <Text style={styles.sliderLabel}>Instrument</Text>
+            </View>
+            <IOSSegmentedControl
+              values={INSTRUMENTS.slice(0, 4).map(i => i.name)}
+              selectedIndex={currentInstrumentIndex < 4 ? currentInstrumentIndex : 0}
+              onChange={handleInstrumentChange}
+            />
+          </View>
+
+          <IOSSettingsRow
+            icon="options"
+            iconColor="#fff"
+            iconBackground="#AA96DA"
+            title="Sound Customization"
+            subtitle="Octave range, reference pitch, playback speed"
+            type="navigation"
+            onPress={() => {}}
+          />
+        </IOSSettingsGroup>
+
+        {/* Practice Section */}
+        <IOSSettingsGroup
+          title="Practice"
+          footer="Adaptive difficulty adjusts question complexity based on your performance."
+        >
+          <IOSSettingsRow
+            icon="play-circle"
+            iconColor="#fff"
+            iconBackground="#4ECDC4"
+            title="Auto-Play Sound"
+            type="toggle"
+            toggleValue={settings.autoPlay}
+            onToggle={(val) => updateSettings({ autoPlay: val })}
+          />
+          <IOSSettingsRow
+            icon="bulb"
+            iconColor="#fff"
+            iconBackground="#FFE66D"
+            title="Show Hints"
+            type="toggle"
+            toggleValue={settings.showHints}
+            onToggle={(val) => updateSettings({ showHints: val })}
+          />
+          <IOSSettingsRow
+            icon="trending-up"
+            iconColor="#fff"
+            iconBackground="#00b894"
+            title="Adaptive Difficulty"
+            type="toggle"
+            toggleValue={settings.practiceMode?.adaptiveDifficultyEnabled ?? true}
+            onToggle={(val) => updateSettings({
+              practiceMode: { ...(settings.practiceMode || {}), adaptiveDifficultyEnabled: val },
+            })}
+          />
+          <IOSSettingsRow
+            icon="repeat"
+            iconColor="#fff"
+            iconBackground="#74b9ff"
+            title="Loop Mode"
+            subtitle="Repeat notes until mastered"
+            type="toggle"
+            toggleValue={settings.practiceMode?.loopMode ?? false}
+            onToggle={(val) => updateSettings({
+              practiceMode: { ...(settings.practiceMode || {}), loopMode: val },
+            })}
+          />
+          <IOSSettingsRow
+            icon="git-compare"
+            iconColor="#fff"
+            iconBackground="#fd79a8"
+            title="Compare Mode"
+            subtitle="Play two sounds side-by-side"
+            type="toggle"
+            toggleValue={settings.practiceMode?.compareMode ?? false}
+            onToggle={(val) => updateSettings({
+              practiceMode: { ...(settings.practiceMode || {}), compareMode: val },
+            })}
+          />
+        </IOSSettingsGroup>
+
+        {/* Notifications Section */}
+        <IOSSettingsGroup
+          title="Notifications"
+          footer="Daily reminders help maintain your practice streak."
+        >
+          <IOSSettingsRow
+            icon="notifications"
+            iconColor="#fff"
+            iconBackground="#FF6B6B"
+            title="Daily Reminder"
+            type="toggle"
+            toggleValue={(settings.notifications?.dailyReminderEnabled ?? false) && notificationsEnabled}
+            onToggle={handleNotificationToggle}
+          />
+          <IOSSettingsRow
+            icon="alarm"
+            iconColor="#fff"
+            iconBackground="#FFE66D"
+            title="Reminder Time"
+            value={settings.notifications?.dailyReminderTime || '09:00'}
+            type="value"
+            disabled={!(settings.notifications?.dailyReminderEnabled)}
+            onPress={() => {}}
+          />
+          <IOSSettingsRow
+            icon="flame"
+            iconColor="#fff"
+            iconBackground="#e17055"
+            title="Streak Warning"
+            subtitle="Alert when streak is at risk"
+            type="toggle"
+            toggleValue={settings.notifications?.streakReminderEnabled ?? true}
+            onToggle={(val) => updateSettings({
+              notifications: { ...(settings.notifications || {}), streakReminderEnabled: val },
+            })}
+          />
+        </IOSSettingsGroup>
+
+        {/* Appearance Section */}
+        <IOSSettingsGroup title="Appearance">
+          <IOSSettingsRow
+            icon="moon"
+            iconColor="#fff"
+            iconBackground="#636e72"
+            title="Use System Theme"
+            subtitle="Match device dark/light mode"
+            type="toggle"
+            toggleValue={settings.useSystemTheme ?? true}
+            onToggle={handleSystemThemeToggle}
+          />
+          <View style={styles.themeContainer}>
+            <Text style={styles.themeTitle}>Theme</Text>
+            <View style={styles.themeGrid}>
+              {THEMES.map((theme) => (
+                <View
+                  key={theme.id}
                   style={[
-                    styles.instrumentCard,
-                    settings.instrument === instrument.id && styles.instrumentSelected,
+                    styles.themeOption,
+                    settings.theme === theme.id && styles.themeSelected,
+                    { backgroundColor: theme.color },
                   ]}
-                  onPress={() => handleInstrumentSelect(instrument.id as Instrument)}
+                  onTouchEnd={() => handleThemeChange(theme.id)}
                 >
-                  <Text style={styles.instrumentIcon}>{instrument.icon}</Text>
-                  <Text style={styles.instrumentName}>{instrument.name}</Text>
-                </TouchableOpacity>
+                  {settings.theme === theme.id && (
+                    <Ionicons name="checkmark" size={20} color="#fff" />
+                  )}
+                </View>
               ))}
             </View>
-          )}
-        </GlassCard>
+          </View>
+        </IOSSettingsGroup>
 
-        {/* Sound Customization */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>🎛️ Sound Customization</Text>
+        {/* Accessibility Section */}
+        <IOSSettingsGroup
+          title="Accessibility"
+          footer="Dynamic Type adjusts text size based on your system preferences."
+        >
+          <IOSSettingsRow
+            icon="phone-portrait"
+            iconColor="#fff"
+            iconBackground="#0984e3"
+            title="Haptic Feedback"
+            type="toggle"
+            toggleValue={settings.hapticFeedback}
+            onToggle={(val) => updateSettings({ hapticFeedback: val })}
+          />
+          <IOSSettingsRow
+            icon="speedometer"
+            iconColor="#fff"
+            iconBackground="#00b894"
+            title="Reduced Motion"
+            type="toggle"
+            toggleValue={settings.reducedMotion ?? false}
+            onToggle={(val) => updateSettings({ reducedMotion: val })}
+          />
+          <IOSSettingsRow
+            icon="text"
+            iconColor="#fff"
+            iconBackground="#6c5ce7"
+            title="Dynamic Type"
+            type="toggle"
+            toggleValue={settings.dynamicTypeEnabled ?? true}
+            onToggle={(val) => updateSettings({ dynamicTypeEnabled: val })}
+          />
+        </IOSSettingsGroup>
 
-          {/* Octave Range */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="options" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Octave Range</Text>
-                <Text style={styles.settingDesc}>Range of octaves for practice</Text>
-              </View>
-            </View>
-            <Text style={styles.settingValueText}>
-              {settings.octaveRange?.min ?? 3} - {settings.octaveRange?.max ?? 5}
-            </Text>
-          </View>
+        {/* Support Section */}
+        <IOSSettingsGroup title="Support">
+          <IOSSettingsRow
+            icon="star"
+            iconColor="#fff"
+            iconBackground="#FFE66D"
+            title="Rate Key Perfect"
+            type="navigation"
+            onPress={handleRateApp}
+          />
+          <IOSSettingsRow
+            icon="share"
+            iconColor="#fff"
+            iconBackground="#4ECDC4"
+            title="Share with Friends"
+            type="navigation"
+            onPress={handleShareApp}
+          />
+          <IOSSettingsRow
+            icon="help-circle"
+            iconColor="#fff"
+            iconBackground="#74b9ff"
+            title="Help & FAQ"
+            type="navigation"
+            onPress={() => {}}
+          />
+          <IOSSettingsRow
+            icon="mail"
+            iconColor="#fff"
+            iconBackground="#AA96DA"
+            title="Contact Support"
+            type="navigation"
+            onPress={() => {}}
+          />
+        </IOSSettingsGroup>
 
-          {/* Reference Pitch */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="musical-note" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Reference Pitch (A4)</Text>
-                <Text style={styles.settingDesc}>Standard tuning frequency</Text>
-              </View>
-            </View>
-            <View style={styles.volumeControl}>
-              <TouchableOpacity
-                style={styles.volumeButton}
-                onPress={() => updateSettings({
-                  referencePitch: Math.max(430, (settings.referencePitch ?? 440) - 1)
-                })}
-                accessibilityLabel="Decrease reference pitch"
-              >
-                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-              <Text style={styles.volumeValue}>{settings.referencePitch ?? 440} Hz</Text>
-              <TouchableOpacity
-                style={styles.volumeButton}
-                onPress={() => updateSettings({
-                  referencePitch: Math.min(450, (settings.referencePitch ?? 440) + 1)
-                })}
-                accessibilityLabel="Increase reference pitch"
-              >
-                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Interval Play Mode */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="git-compare" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Interval Mode</Text>
-                <Text style={styles.settingDesc}>How intervals are played</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.toggleButton}
-              onPress={() => updateSettings({
-                intervalPlayMode: settings.intervalPlayMode === 'harmonic' ? 'melodic' : 'harmonic'
-              })}
-              accessibilityLabel={`Interval mode: ${settings.intervalPlayMode ?? 'harmonic'}`}
-              accessibilityRole="button"
-            >
-              <Text style={styles.toggleButtonText}>
-                {(settings.intervalPlayMode ?? 'harmonic') === 'harmonic' ? 'Harmonic' : 'Melodic'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Playback Speed */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="speedometer" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Playback Speed</Text>
-                <Text style={styles.settingDesc}>Speed of audio playback</Text>
-              </View>
-            </View>
-            <View style={styles.volumeControl}>
-              <TouchableOpacity
-                style={styles.volumeButton}
-                onPress={() => updateSettings({
-                  playbackSpeed: Math.max(0.5, (settings.playbackSpeed ?? 1.0) - 0.1)
-                })}
-                accessibilityLabel="Decrease playback speed"
-              >
-                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-              <Text style={styles.volumeValue}>{(settings.playbackSpeed ?? 1.0).toFixed(1)}x</Text>
-              <TouchableOpacity
-                style={styles.volumeButton}
-                onPress={() => updateSettings({
-                  playbackSpeed: Math.min(2.0, (settings.playbackSpeed ?? 1.0) + 0.1)
-                })}
-                accessibilityLabel="Increase playback speed"
-              >
-                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </GlassCard>
-
-        {/* Gameplay Settings */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>🎮 Gameplay</Text>
-
-          {/* Auto-play */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="play-circle" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Auto-play Next</Text>
-                <Text style={styles.settingDesc}>Automatically play the next question</Text>
-              </View>
-            </View>
-            <Switch
-              value={settings.autoPlay}
-              onValueChange={(value) => updateSettings({ autoPlay: value })}
-              trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
-              thumbColor={settings.autoPlay ? COLORS.success : COLORS.textMuted}
-              accessibilityLabel="Auto-play next question"
-            />
-          </View>
-
-          {/* Show Hints */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="help-circle" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Show Hints</Text>
-                <Text style={styles.settingDesc}>Display helpful hints during gameplay</Text>
-              </View>
-            </View>
-            <Switch
-              value={settings.showHints}
-              onValueChange={(value) => updateSettings({ showHints: value })}
-              trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
-              thumbColor={settings.showHints ? COLORS.success : COLORS.textMuted}
-              accessibilityLabel="Show hints"
-            />
-          </View>
-
-          {/* Haptic Feedback */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="phone-portrait" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Haptic Feedback</Text>
-                <Text style={styles.settingDesc}>Vibrate on button presses</Text>
-              </View>
-            </View>
-            <Switch
-              value={settings.hapticFeedback}
-              onValueChange={(value) => updateSettings({ hapticFeedback: value })}
-              trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
-              thumbColor={settings.hapticFeedback ? COLORS.success : COLORS.textMuted}
-              accessibilityLabel="Haptic feedback"
-            />
-          </View>
-        </GlassCard>
-
-        {/* Accessibility */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>♿ Accessibility</Text>
-
-          {/* Reduced Motion */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Ionicons name="flash-off" size={24} color={COLORS.textPrimary} />
-              <View>
-                <Text style={styles.settingLabel}>Reduced Motion</Text>
-                <Text style={styles.settingDesc}>Minimize animations for accessibility</Text>
-              </View>
-            </View>
-            <Switch
-              value={settings.reducedMotion ?? false}
-              onValueChange={(value) => updateSettings({ reducedMotion: value })}
-              trackColor={{ false: COLORS.cardBackground, true: COLORS.success + '60' }}
-              thumbColor={(settings.reducedMotion ?? false) ? COLORS.success : COLORS.textMuted}
-              accessibilityLabel="Reduced motion"
-            />
-          </View>
-        </GlassCard>
-
-        {/* Account Stats */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Your Stats</Text>
-          
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Total XP</Text>
-            <Text style={styles.statValue}>{stats.totalXP.toLocaleString()}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Levels Completed</Text>
-            <Text style={styles.statValue}>{stats.levelsCompleted}/8</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Achievements</Text>
-            <Text style={styles.statValue}>{stats.achievements.length}/12</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Total Correct</Text>
-            <Text style={styles.statValue}>{stats.correctAnswers.toLocaleString()}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Longest Streak</Text>
-            <Text style={styles.statValue}>{stats.longestStreak} days</Text>
-          </View>
-        </GlassCard>
-
-        {/* About */}
-        <GlassCard style={styles.section}>
-          <Text style={styles.sectionTitle}>ℹ️ About</Text>
-          
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>Version</Text>
-            <Text style={styles.aboutValue}>1.0.0</Text>
-          </View>
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>Build</Text>
-            <Text style={styles.aboutValue}>2024.12.10</Text>
-          </View>
-          
-          <Text style={styles.aboutText}>
-            Key Perfect is an advanced ear training application designed to help musicians 
-            develop perfect pitch and chord recognition skills through gamified learning.
-          </Text>
-        </GlassCard>
-
-        {/* Danger Zone */}
-        <GlassCard style={[styles.section, styles.dangerSection]}>
-          <Text style={styles.dangerTitle}>⚠️ Danger Zone</Text>
-          
-          <TouchableOpacity 
-            style={styles.dangerButton}
+        {/* Data Section */}
+        <IOSSettingsGroup
+          title="Data"
+          footer="Resetting progress will remove all your stats and achievements."
+        >
+          <IOSSettingsRow
+            icon="refresh"
+            iconColor="#fff"
+            iconBackground="#e17055"
+            title="Reset Progress"
+            type="button"
             onPress={handleResetProgress}
-          >
-            <Ionicons name="trash" size={20} color={COLORS.error} />
-            <Text style={styles.dangerButtonText}>Reset All Progress</Text>
-          </TouchableOpacity>
-          
-          <Text style={styles.dangerWarning}>
-            This will permanently delete all your progress, stats, and achievements.
-          </Text>
-        </GlassCard>
+          />
+          <IOSSettingsRow
+            icon="trash"
+            iconColor={COLORS.error}
+            title="Clear All Data"
+            type="button"
+            destructive
+            onPress={handleClearAllData}
+          />
+        </IOSSettingsGroup>
 
-        <View style={{ height: 100 }} />
+        {/* About Section */}
+        <IOSSettingsGroup title="About">
+          <IOSSettingsRow
+            icon="information-circle"
+            iconColor="#fff"
+            iconBackground="#667eea"
+            title="Version"
+            value={appVersion}
+            type="value"
+            onPress={() => {}}
+          />
+          <IOSSettingsRow
+            icon="document-text"
+            iconColor="#fff"
+            iconBackground="#636e72"
+            title="Privacy Policy"
+            type="navigation"
+            onPress={() => {}}
+          />
+          <IOSSettingsRow
+            icon="shield-checkmark"
+            iconColor="#fff"
+            iconBackground="#00b894"
+            title="Terms of Service"
+            type="navigation"
+            onPress={() => {}}
+          />
+        </IOSSettingsGroup>
+
+        {/* Stats Summary */}
+        <View style={styles.statsContainer}>
+          <Text style={styles.statsTitle}>Your Journey</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.totalXP.toLocaleString()}</Text>
+              <Text style={styles.statLabel}>Total XP</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.correctAnswers}</Text>
+              <Text style={styles.statLabel}>Correct</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.longestStreak}</Text>
+              <Text style={styles.statLabel}>Best Streak</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{stats.achievements.length}</Text>
+              <Text style={styles.statLabel}>Achievements</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom padding for tab bar */}
+        <View style={{ height: 120 }} />
       </ScrollView>
     </LinearGradient>
   );
@@ -403,187 +518,104 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.md,
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 120 : 60,
   },
-  header: {
+  sliderContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  sliderHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
-  title: {
+  iconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  sliderLabel: {
+    flex: 1,
     color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 16,
   },
-  section: {
-    marginBottom: SPACING.md,
+  sliderValue: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
   },
-  sectionTitle: {
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.divider,
+    marginLeft: SPACING.md + 40,
+  },
+  instrumentContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  instrumentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  themeContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  themeTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    marginBottom: SPACING.sm,
+  },
+  themeGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  themeOption: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeSelected: {
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  statsContainer: {
+    marginTop: SPACING.lg,
+    padding: SPACING.md,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  statsTitle: {
     color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: SPACING.md,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: SPACING.sm,
-  },
-  settingIcon: {
-    fontSize: 24,
-  },
-  settingLabel: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-  },
-  settingDesc: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  settingValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  settingValueText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-  },
-  volumeControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  volumeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.cardBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  volumeValue: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-    minWidth: 50,
     textAlign: 'center',
   },
-  instrumentGrid: {
+  statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    justifyContent: 'space-around',
   },
-  instrumentCard: {
-    width: '30%',
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.sm,
+  statItem: {
     alignItems: 'center',
-  },
-  instrumentSelected: {
-    backgroundColor: COLORS.xpGradientStart + '40',
-    borderWidth: 1,
-    borderColor: COLORS.xpGradientStart,
-  },
-  instrumentIcon: {
-    fontSize: 24,
-  },
-  instrumentName: {
-    color: COLORS.textPrimary,
-    fontSize: 12,
-    marginTop: SPACING.xs,
-  },
-  toggleButton: {
-    backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
-  },
-  toggleButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-  },
-  statLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
   },
   statValue: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: COLORS.xpGradientStart,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-  aboutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.xs,
-  },
-  aboutLabel: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-  },
-  aboutValue: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  aboutText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: SPACING.md,
-  },
-  dangerSection: {
-    borderColor: COLORS.error + '40',
-  },
-  dangerTitle: {
-    color: COLORS.error,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: SPACING.md,
-  },
-  dangerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.errorLight,
-    paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.error + '40',
-  },
-  dangerButtonText: {
-    color: COLORS.error,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dangerWarning: {
+  statLabel: {
     color: COLORS.textMuted,
     fontSize: 12,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
+    marginTop: 4,
   },
 });

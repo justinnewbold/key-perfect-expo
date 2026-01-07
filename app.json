@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,7 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.keyperfect.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app uses the microphone for the guitar tuner feature."
+        "NSMicrophoneUsageDescription": "This app uses the microphone for the guitar tuner and pitch detection features.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
@@ -35,7 +36,16 @@
       "output": "single"
     },
     "plugins": [
-      "expo-av"
+      "expo-av",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#667eea",
+          "sounds": []
+        }
+      ]
     ]
   }
 }

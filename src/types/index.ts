@@ -156,15 +156,18 @@ export const LEVELS: LevelConfig[] = [
 ];
 
 // Game modes
-export type GameMode = 
-  | 'speed' 
-  | 'survival' 
-  | 'daily' 
-  | 'intervals' 
-  | 'progressions' 
-  | 'reverse' 
-  | 'inversions' 
-  | 'scales';
+export type GameMode =
+  | 'speed'
+  | 'survival'
+  | 'daily'
+  | 'intervals'
+  | 'progressions'
+  | 'reverse'
+  | 'inversions'
+  | 'scales'
+  | 'relative-pitch'
+  | 'dictation'
+  | 'blind-test';
 
 export interface GameModeConfig {
   id: GameMode;
@@ -172,6 +175,7 @@ export interface GameModeConfig {
   description: string;
   icon: string;
   color: string;
+  unlockLevel?: number; // Level required to unlock this mode
 }
 
 export const GAME_MODES: GameModeConfig[] = [
@@ -179,10 +183,13 @@ export const GAME_MODES: GameModeConfig[] = [
   { id: 'survival', name: 'Survival', description: '3 lives, progressive difficulty', icon: 'heart', color: '#4ECDC4' },
   { id: 'daily', name: 'Daily Challenge', description: 'New challenge every day', icon: 'calendar', color: '#FFE66D' },
   { id: 'intervals', name: 'Intervals', description: 'Identify harmonic intervals', icon: 'git-compare', color: '#95E1D3' },
-  { id: 'progressions', name: 'Progressions', description: 'Identify chord progressions', icon: 'trending-up', color: '#F38181' },
-  { id: 'reverse', name: 'Reverse Mode', description: 'Click to hear, then identify', icon: 'refresh-cw', color: '#AA96DA' },
-  { id: 'inversions', name: 'Chord Inversions', description: 'Root position vs inversions', icon: 'layers', color: '#FCBAD3' },
-  { id: 'scales', name: 'Scale Recognition', description: 'Identify 14 different scales', icon: 'activity', color: '#A8E6CF' },
+  { id: 'progressions', name: 'Progressions', description: 'Identify chord progressions', icon: 'trending-up', color: '#F38181', unlockLevel: 4 },
+  { id: 'reverse', name: 'Reverse Mode', description: 'Click to hear, then identify', icon: 'repeat', color: '#AA96DA', unlockLevel: 2 },
+  { id: 'inversions', name: 'Chord Inversions', description: 'Root position vs inversions', icon: 'layers', color: '#FCBAD3', unlockLevel: 5 },
+  { id: 'scales', name: 'Scale Recognition', description: 'Identify 14 different scales', icon: 'bar-chart', color: '#A8E6CF', unlockLevel: 6 },
+  { id: 'relative-pitch', name: 'Relative Pitch', description: 'Identify intervals from reference note', icon: 'swap-horizontal', color: '#74b9ff', unlockLevel: 3 },
+  { id: 'dictation', name: 'Dictation', description: 'Recreate melodies by tapping notes', icon: 'create', color: '#fd79a8', unlockLevel: 4 },
+  { id: 'blind-test', name: 'Blind Test', description: 'No feedback until end of round', icon: 'eye-off', color: '#636e72', unlockLevel: 5 },
 ];
 
 // Intervals
@@ -336,6 +343,43 @@ export interface WeakArea {
   lastPracticed?: string;
 }
 
+// Weekly goal interface
+export interface WeeklyGoal {
+  id: string;
+  type: 'practice_time' | 'correct_answers' | 'levels' | 'game_modes';
+  target: number;
+  current: number;
+  weekStart: string;
+  completed: boolean;
+}
+
+// Streak freeze/protection
+export interface StreakProtection {
+  freezesAvailable: number;
+  freezesUsedThisWeek: number;
+  lastFreezeDate: string | null;
+  weekStart: string;
+}
+
+// Game session for mistake review
+export interface GameSession {
+  id: string;
+  mode: GameMode;
+  date: string;
+  score: number;
+  total: number;
+  mistakes: { item: string; correctAnswer: string; userAnswer: string }[];
+  duration: number;
+}
+
+// Adaptive difficulty state
+export interface AdaptiveDifficulty {
+  currentLevel: number; // 1-10 difficulty scale
+  consecutiveCorrect: number;
+  consecutiveWrong: number;
+  lastAdjustment: string;
+}
+
 export interface UserStats {
   totalAttempts: number;
   correctAnswers: number;
@@ -359,6 +403,14 @@ export interface UserStats {
   dailyChallengesCompleted: number;
   speedModeHighScore: number;
   survivalModeHighScore: number;
+  // New fields for enhanced features
+  weeklyGoals: WeeklyGoal[];
+  streakProtection: StreakProtection;
+  recentSessions: GameSession[];
+  adaptiveDifficulty: AdaptiveDifficulty;
+  unlockedGameModes: GameMode[];
+  reviewPromptShownAt: number | null; // XP level when last prompted
+  totalShareCount: number;
 }
 
 export const DEFAULT_STATS: UserStats = {
@@ -384,10 +436,45 @@ export const DEFAULT_STATS: UserStats = {
   dailyChallengesCompleted: 0,
   speedModeHighScore: 0,
   survivalModeHighScore: 0,
+  // New fields defaults
+  weeklyGoals: [],
+  streakProtection: {
+    freezesAvailable: 1,
+    freezesUsedThisWeek: 0,
+    lastFreezeDate: null,
+    weekStart: new Date().toISOString().split('T')[0],
+  },
+  recentSessions: [],
+  adaptiveDifficulty: {
+    currentLevel: 1,
+    consecutiveCorrect: 0,
+    consecutiveWrong: 0,
+    lastAdjustment: '',
+  },
+  unlockedGameModes: ['speed', 'survival', 'daily', 'intervals'],
+  reviewPromptShownAt: null,
+  totalShareCount: 0,
 };
 
 // Theme type
 export type ThemeId = 'purple' | 'ocean' | 'sunset' | 'forest' | 'midnight';
+
+// Notification settings
+export interface NotificationSettings {
+  dailyReminderEnabled: boolean;
+  dailyReminderTime: string; // HH:mm format
+  streakReminderEnabled: boolean;
+  achievementNotificationsEnabled: boolean;
+  weeklyProgressEnabled: boolean;
+}
+
+// Practice mode settings
+export interface PracticeModeSettings {
+  loopMode: boolean;
+  loopCount: number;
+  compareMode: boolean;
+  adaptiveDifficultyEnabled: boolean;
+}
 
 // Settings interface
 export interface UserSettings {
@@ -406,6 +493,11 @@ export interface UserSettings {
   playbackSpeed: number; // 0.5 to 2.0
   intervalPlayMode: 'harmonic' | 'melodic'; // Harmonic (together) or melodic (sequential)
   reducedMotion: boolean; // Accessibility: reduce animations
+  // New iOS-native features
+  useSystemTheme: boolean; // Auto dark/light mode based on system
+  dynamicTypeEnabled: boolean; // iOS Dynamic Type accessibility
+  notifications: NotificationSettings;
+  practiceMode: PracticeModeSettings;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -424,4 +516,20 @@ export const DEFAULT_SETTINGS: UserSettings = {
   playbackSpeed: 1.0,
   intervalPlayMode: 'harmonic',
   reducedMotion: false,
+  // New iOS-native features defaults
+  useSystemTheme: true,
+  dynamicTypeEnabled: true,
+  notifications: {
+    dailyReminderEnabled: true,
+    dailyReminderTime: '09:00',
+    streakReminderEnabled: true,
+    achievementNotificationsEnabled: true,
+    weeklyProgressEnabled: true,
+  },
+  practiceMode: {
+    loopMode: false,
+    loopCount: 3,
+    compareMode: false,
+    adaptiveDifficultyEnabled: true,
+  },
 };

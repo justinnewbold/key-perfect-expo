@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   ViewStyle,
   TextStyle,
-  ActivityIndicator
+  ActivityIndicator,
+  Animated,
+  Platform,
 } from 'react-native';
-import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
+import { safeHaptics } from '../utils/haptics';
 import { COLORS, BORDER_RADIUS, SPACING, SHADOWS } from '../utils/theme';
 
 interface ButtonProps {
@@ -39,9 +41,33 @@ export default function Button({
   accessibilityLabel,
   accessibilityHint,
 }: ButtonProps) {
+  // iOS-style scale animation
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    if (haptic) {
+      safeHaptics.buttonPressDown();
+    }
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
   const handlePress = () => {
     if (haptic) {
-      safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
+      safeHaptics.mediumTap();
     }
     onPress();
   };
@@ -98,43 +124,51 @@ export default function Button({
   };
 
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
-      accessible={true}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel || title}
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: disabled || loading }}
+    <Animated.View
       style={[
-        styles.button,
-        variantStyles[variant],
-        sizeStyles[size].button,
-        disabled && styles.disabled,
+        { transform: [{ scale: scaleAnim }] },
         SHADOWS.small,
-        style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={variantTextStyles[variant].color} />
-      ) : (
-        <>
-          {icon}
-          <Text
-            style={[
-              styles.text,
-              variantTextStyles[variant],
-              sizeStyles[size].text,
-              icon && styles.textWithIcon,
-              textStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
+      <TouchableOpacity
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        activeOpacity={1}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: disabled || loading }}
+        style={[
+          styles.button,
+          variantStyles[variant],
+          sizeStyles[size].button,
+          disabled && styles.disabled,
+          style,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color={variantTextStyles[variant].color} />
+        ) : (
+          <>
+            {icon}
+            <Text
+              style={[
+                styles.text,
+                variantTextStyles[variant],
+                sizeStyles[size].text,
+                icon && styles.textWithIcon,
+                textStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 

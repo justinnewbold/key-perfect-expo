@@ -19,22 +19,23 @@ interface AppContextType {
   addXP: (amount: number) => Promise<void>;
   unlockLevel: (levelId: number) => Promise<void>;
   completeLevel: (levelId: number, correct: number, total: number) => Promise<void>;
-  
+  resetStats: () => Promise<void>;
+
   // Settings
   settings: UserSettings;
   updateSettings: (updates: Partial<UserSettings>) => Promise<void>;
-  
+
   // XP/Level info
   levelInfo: { level: number; currentXP: number; nextLevelXP: number };
-  
+
   // Achievements
   newAchievements: string[];
   clearNewAchievements: () => void;
-  
+
   // Audio
   playNote: (note: string, octave?: number, duration?: number) => Promise<void>;
   playChord: (root: string, type: string, octave?: number, duration?: number) => Promise<void>;
-  
+
   // Loading state
   isLoading: boolean;
 }
@@ -194,6 +195,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [stats, updateStats]);
 
+  // Reset stats
+  const resetStats = useCallback(async () => {
+    try {
+      setStats(DEFAULT_STATS);
+      await saveStats(DEFAULT_STATS);
+      setNewAchievements([]);
+    } catch (error) {
+      console.error('Error resetting stats:', error);
+    }
+  }, []);
+
   // Update settings
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     try {
@@ -233,6 +245,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addXP,
     unlockLevel,
     completeLevel,
+    resetStats,
     settings,
     updateSettings,
     levelInfo,

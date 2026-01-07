@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -8,12 +8,24 @@ import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
 import { GAME_MODES, LEVELS } from '../types';
+import { safeHaptics } from '../utils/haptics';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { stats, levelInfo } = useApp();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler with iOS spring animation feel
+  const onRefresh = useCallback(async () => {
+    safeHaptics.lightTap();
+    setRefreshing(true);
+    // Simulate a refresh - in production this would refetch data
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    safeHaptics.successPattern();
+    setRefreshing(false);
+  }, []);
 
   const quickStats = [
     { 
@@ -43,10 +55,19 @@ export default function HomeScreen() {
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.textPrimary}
+            colors={[COLORS.xpGradientStart]}
+            progressBackgroundColor={Platform.OS === 'android' ? COLORS.cardBackground : undefined}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
