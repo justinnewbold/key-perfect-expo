@@ -91,17 +91,14 @@ export default function LevelGameScreen() {
     // Generate wrong options
     const wrongOptions = level.keys.filter(k => k !== answer);
     const shuffledWrong = shuffleArray(wrongOptions).slice(0, Math.min(3, wrongOptions.length));
-    const allOptions = shuffleArray([answer, ...shuffledWrong]);
+    // Ensure uniqueness in options
+    const allOptions = shuffleArray([...new Set([answer, ...shuffledWrong])]);
     setOptions(allOptions);
 
     setGameState('playing');
     setSelectedAnswer(null);
-
-    // Play the sound after a short delay to ensure state is updated
-    safeSetTimeout(() => {
-      playSoundForAnswer(answer);
-    }, 300);
-  }, [level, playSoundForAnswer, safeSetTimeout]);
+    // Sound will only play when user taps the play button
+  }, [level]);
 
   // Initialize first question
   useEffect(() => {

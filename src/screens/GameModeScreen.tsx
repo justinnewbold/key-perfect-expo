@@ -232,7 +232,8 @@ export default function GameModeScreen() {
   const startSpeedMode = () => {
     const items = ALL_NOTES;
     const currentItem = items[Math.floor(Math.random() * items.length)];
-    const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+    // Ensure unique options
+    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
 
     setSpeedState({
       score: 0,
@@ -266,7 +267,8 @@ export default function GameModeScreen() {
     setTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
-      const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+      // Ensure unique options
+      const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
 
       setSpeedState(prev => prev ? {
         ...prev,
@@ -294,7 +296,8 @@ export default function GameModeScreen() {
   const startSurvivalMode = () => {
     const items = ALL_NOTES;
     const currentItem = items[Math.floor(Math.random() * items.length)];
-    const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+    // Ensure unique options
+    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
 
     setSurvivalState({
       score: 0,
@@ -344,7 +347,8 @@ export default function GameModeScreen() {
       const items = newLevel >= 3 ? [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)] : ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
       const numOptions = Math.min(3 + Math.floor(newLevel / 2), 5);
-      const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, numOptions)]);
+      // Ensure unique options - get numOptions-1 wrong answers + correct answer
+      const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, numOptions - 1)])]);
 
       setSurvivalState({
         ...survivalState,
@@ -413,7 +417,8 @@ export default function GameModeScreen() {
   const startDailyChallenge = () => {
     const items = ALL_NOTES;
     const currentItem = items[Math.floor(Math.random() * items.length)];
-    const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+    // Ensure unique options
+    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
 
     setDailyState({
       score: 0,
@@ -470,7 +475,8 @@ export default function GameModeScreen() {
     setTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
-      const options = shuffleArray([currentItem, ...getWrongOptions(currentItem, items, 3)]);
+      // Ensure unique options
+      const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
 
       setDailyState({
         ...dailyState,
