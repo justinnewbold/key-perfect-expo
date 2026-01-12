@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Dimensions,
   Animated,
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -373,9 +373,13 @@ export default function GuitarScreen() {
           <Text style={styles.title}>Guitar Tools</Text>
           <View style={{ width: 24 }} />
         </View>
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.toolContainer}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          bounces={true}
+          overScrollMode="always"
         >
           {renderToolContent()}
         </ScrollView>
@@ -388,10 +392,14 @@ export default function GuitarScreen() {
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        bounces={true}
+        overScrollMode="always"
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>

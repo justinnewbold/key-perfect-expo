@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Dimensions,
   Animated,
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -48,6 +48,16 @@ export default function PracticeScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const getAvailableItems = (): string[] => {
     switch (practiceMode) {
@@ -132,8 +142,8 @@ export default function PracticeScreen() {
       await addXP(XP_PER_CORRECT);
     }
 
-    // Next question after delay
-    setTimeout(() => {
+    // Next question after delay (using ref for cleanup on unmount)
+    timeoutRef.current = setTimeout(() => {
       const { selectedItems } = practiceState;
       const currentItem = selectedItems[Math.floor(Math.random() * selectedItems.length)];
       const numOptions = Math.min(difficulty, selectedItems.length);
@@ -185,10 +195,14 @@ export default function PracticeScreen() {
   if (isConfiguring) {
     return (
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          bounces={true}
+          overScrollMode="always"
         >
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>

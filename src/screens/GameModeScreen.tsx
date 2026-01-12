@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Dimensions,
   Animated,
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -172,9 +172,10 @@ export default function GameModeScreen() {
     }
   }, [modeId]);
 
-  // Speed Mode Timer
+  // Speed Mode Timer - starts when speedState is initialized and runs until timeLeft reaches 0
   useEffect(() => {
-    if (isActive && modeId === 'speed' && speedState && speedState.timeLeft > 0) {
+    // Only start timer if speed mode is active and timer hasn't started yet
+    if (isActive && modeId === 'speed' && speedState && speedState.timeLeft > 0 && !speedTimerRef.current) {
       speedTimerRef.current = setInterval(() => {
         setSpeedState(prev => {
           if (!prev) return prev;
@@ -188,15 +189,15 @@ export default function GameModeScreen() {
           return { ...prev, timeLeft: prev.timeLeft - 1 };
         });
       }, 1000);
-
-      return () => {
-        if (speedTimerRef.current) {
-          clearInterval(speedTimerRef.current);
-          speedTimerRef.current = null;
-        }
-      };
     }
-  }, [isActive, modeId, speedState?.timeLeft === 30]); // Only restart timer when game starts (timeLeft === 30)
+
+    return () => {
+      if (speedTimerRef.current && (!isActive || modeId !== 'speed')) {
+        clearInterval(speedTimerRef.current);
+        speedTimerRef.current = null;
+      }
+    };
+  }, [isActive, modeId, speedState]);
 
   const startGameMode = (mode: ModeId) => {
     setIsActive(true);

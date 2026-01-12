@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Modal,
   Dimensions,
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -328,10 +328,14 @@ export default function LearnScreen() {
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        bounces={true}
+        overScrollMode="always"
       >
         {/* Header */}
         <View style={styles.header}>
