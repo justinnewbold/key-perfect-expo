@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AppProvider, useApp } from './src/context/AppContext';
@@ -82,9 +82,12 @@ function AppContent() {
 }
 
 // Root app component
+// On web, GestureHandlerRootView can block native scrolling, so we use a plain View instead
+const RootWrapper = Platform.OS === 'web' ? View : GestureHandlerRootView;
+
 export default function App() {
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <RootWrapper style={styles.container}>
       <SafeAreaProvider>
         <ErrorBoundary>
           <AppProvider>
@@ -93,7 +96,7 @@ export default function App() {
           </AppProvider>
         </ErrorBoundary>
       </SafeAreaProvider>
-    </GestureHandlerRootView>
+    </RootWrapper>
   );
 }
 
