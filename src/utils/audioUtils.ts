@@ -487,9 +487,11 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 export function getWrongOptions<T>(correct: T, allOptions: T[], count: number = 3): T[] {
-  const available = allOptions.filter(opt => opt !== correct);
+  // Ensure allOptions has unique values and filter out the correct answer
+  const uniqueOptions = [...new Set(allOptions)];
+  const available = uniqueOptions.filter(opt => opt !== correct);
   const shuffled = shuffleArray(available);
-  return shuffled.slice(0, count);
+  return shuffled.slice(0, Math.min(count, available.length));
 }
 
 export default audioEngine;

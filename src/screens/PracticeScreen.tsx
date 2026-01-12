@@ -70,7 +70,8 @@ export default function PracticeScreen() {
     const currentItem = items[Math.floor(Math.random() * items.length)];
     const numOptions = Math.min(difficulty, items.length);
     const wrongOptions = getWrongOptions(currentItem, items, numOptions - 1);
-    const options = shuffleArray([currentItem, ...wrongOptions]);
+    // Ensure unique options
+    const options = shuffleArray([...new Set([currentItem, ...wrongOptions])]);
 
     setPracticeState({
       mode: practiceMode,
@@ -137,7 +138,8 @@ export default function PracticeScreen() {
       const currentItem = selectedItems[Math.floor(Math.random() * selectedItems.length)];
       const numOptions = Math.min(difficulty, selectedItems.length);
       const wrongOptions = getWrongOptions(currentItem, selectedItems, numOptions - 1);
-      const options = shuffleArray([currentItem, ...wrongOptions]);
+      // Ensure unique options
+      const options = shuffleArray([...new Set([currentItem, ...wrongOptions])]);
 
       setPracticeState({
         ...practiceState,
@@ -150,10 +152,7 @@ export default function PracticeScreen() {
 
       setAnswerState('default');
       setSelectedAnswer(null);
-
-      if (settings.autoPlay) {
-        setTimeout(playSound, 300);
-      }
+      // Sound will only play when user taps the play button (removed autoPlay)
     }, isCorrect ? 500 : 800);
   };
 
