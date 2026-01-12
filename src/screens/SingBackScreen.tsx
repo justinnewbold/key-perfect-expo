@@ -43,6 +43,7 @@ export default function SingBackScreen() {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const micScaleAnim = useRef(new Animated.Value(1)).current;
+  const isEvaluatingRef = useRef(false); // Prevent multiple evaluatePitch calls
 
   // Pulse animation for listening indicator
   useEffect(() => {
@@ -75,8 +76,9 @@ export default function SingBackScreen() {
         setCountdown(countdown - 1);
       }, 1000);
       return () => clearTimeout(timer);
-    } else if (gameState === 'listening' && countdown === 0) {
-      // Time's up, evaluate the pitch
+    } else if (gameState === 'listening' && countdown === 0 && !isEvaluatingRef.current) {
+      // Time's up, evaluate the pitch (only once)
+      isEvaluatingRef.current = true;
       evaluatePitch();
     }
   }, [gameState, countdown]);
@@ -122,6 +124,7 @@ export default function SingBackScreen() {
   };
 
   const startListening = async () => {
+    isEvaluatingRef.current = false; // Reset evaluation flag for new round
     setGameState('listening');
     setCountdown(listenTime);
     pitchDetection.clearHistory();

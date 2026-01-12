@@ -48,6 +48,16 @@ export default function PracticeScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const getAvailableItems = (): string[] => {
     switch (practiceMode) {
@@ -132,8 +142,8 @@ export default function PracticeScreen() {
       await addXP(XP_PER_CORRECT);
     }
 
-    // Next question after delay
-    setTimeout(() => {
+    // Next question after delay (using ref for cleanup on unmount)
+    timeoutRef.current = setTimeout(() => {
       const { selectedItems } = practiceState;
       const currentItem = selectedItems[Math.floor(Math.random() * selectedItems.length)];
       const numOptions = Math.min(difficulty, selectedItems.length);
