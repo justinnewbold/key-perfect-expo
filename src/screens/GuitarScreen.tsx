@@ -60,12 +60,19 @@ export default function GuitarScreen() {
   const [targetNote, setTargetNote] = useState('');
   const [score, setScore] = useState(0);
 
+  // Stop metronome when switching away from metronome tool
   useEffect(() => {
-    if (isPlaying) {
+    if (activeTool !== 'metronome' && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [activeTool, isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying && activeTool === 'metronome') {
       const interval = 60000 / bpm;
       intervalRef.current = setInterval(() => {
         setBeat(prev => (prev + 1) % timeSignature);
-        
+
         // Pulse animation
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -83,15 +90,17 @@ export default function GuitarScreen() {
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isPlaying, bpm, timeSignature]);
+  }, [isPlaying, bpm, timeSignature, activeTool]);
 
   const startFretboardGame = () => {
     const randomNote = ALL_NOTES[Math.floor(Math.random() * ALL_NOTES.length)];

@@ -193,9 +193,12 @@ export function useMidiInput(onNoteReceived?: (note: MidiNote) => void) {
   const disableMidi = useCallback(() => {
     const midiAccess = midiAccessRef.current;
     if (midiAccess) {
+      // Clear all MIDI message listeners
       midiAccess.inputs.forEach((input) => {
         input.onmidimessage = null;
       });
+      // Clear state change listener to prevent memory leak
+      midiAccess.onstatechange = null;
     }
     setState(prev => ({ ...prev, isEnabled: false }));
   }, []);

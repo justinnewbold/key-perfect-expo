@@ -44,6 +44,30 @@ export default function SingBackScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const micScaleAnim = useRef(new Animated.Value(1)).current;
   const isEvaluatingRef = useRef(false); // Prevent multiple evaluatePitch calls
+  const isMountedRef = useRef(true); // Track mount state for cleanup
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]); // Track timeouts for cleanup
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
+      timeoutRefs.current = [];
+    };
+  }, []);
+
+  // Helper to create tracked timeouts that auto-cleanup
+  const safeSetTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      if (isMountedRef.current) {
+        callback();
+      }
+      timeoutRefs.current = timeoutRefs.current.filter(id => id !== timeoutId);
+    }, delay);
+    timeoutRefs.current.push(timeoutId);
+    return timeoutId;
+  }, []);
 
   // Pulse animation for listening indicator
   useEffect(() => {
@@ -118,7 +142,7 @@ export default function SingBackScreen() {
     safeHaptics.impactAsync(ImpactFeedbackStyle.Medium);
 
     // Wait a moment then start listening
-    setTimeout(() => {
+    safeSetTimeout(() => {
       startListening();
     }, 1500);
   };
@@ -161,7 +185,7 @@ export default function SingBackScreen() {
     setGameState('feedback');
 
     // Continue to next round or show results
-    setTimeout(() => {
+    safeSetTimeout(() => {
       if (currentRound >= totalRounds) {
         setGameState('results');
       } else {
