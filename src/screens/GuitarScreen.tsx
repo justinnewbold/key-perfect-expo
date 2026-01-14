@@ -374,6 +374,7 @@ export default function GuitarScreen() {
       <LinearGradient
         colors={[COLORS.gradientStart, COLORS.gradientEnd]}
         style={styles.container}
+        pointerEvents="box-none"
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setActiveTool(null)}>
@@ -400,6 +401,7 @@ export default function GuitarScreen() {
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
+      pointerEvents="box-none"
     >
       <ScrollView
         style={styles.scrollView}

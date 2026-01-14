@@ -148,6 +148,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
+      pointerEvents="box-none"
     >
       {/* Skip button */}
       {!isLastSlide && (

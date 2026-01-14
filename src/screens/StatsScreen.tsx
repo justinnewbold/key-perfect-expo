@@ -86,6 +86,7 @@ export default function StatsScreen() {
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
       style={styles.container}
+      pointerEvents="box-none"
     >
       <ScrollView
         style={styles.scrollView}

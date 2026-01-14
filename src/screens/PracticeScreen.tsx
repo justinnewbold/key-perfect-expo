@@ -194,7 +194,7 @@ export default function PracticeScreen() {
   // Configuration screen
   if (isConfiguring) {
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container} pointerEvents="box-none">
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.content}
@@ -365,7 +365,7 @@ export default function PracticeScreen() {
     : 0;
 
   return (
-    <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+    <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container} pointerEvents="box-none">
       <View style={styles.practiceContent}>
         {/* Header */}
         <View style={styles.header}>

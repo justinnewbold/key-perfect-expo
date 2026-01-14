@@ -304,7 +304,7 @@ export default function WeakAreasPracticeScreen() {
   // Render overview (before starting)
   if (!practiceState) {
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container} pointerEvents="box-none">
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
