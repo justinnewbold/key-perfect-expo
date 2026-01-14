@@ -31,7 +31,7 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
     ]).start(() => {
       onHide();
     });
-  }, [translateY, opacity, onHide]);
+  }, [onHide]); // Animated values from useRef don't change, so exclude from deps
 
   useEffect(() => {
     if (achievementId) {
@@ -63,7 +63,7 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
 
       return () => clearTimeout(timeout);
     }
-  }, [achievementId, hideToast, translateY, opacity, scale]);
+  }, [achievementId, hideToast]); // Animated values from useRef don't change
 
   if (!achievementId) return null;
 

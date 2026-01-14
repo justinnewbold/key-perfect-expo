@@ -19,8 +19,13 @@ function ProgressChart({
   title,
   color = COLORS.xpGradientStart,
 }: ProgressChartProps) {
+  // Handle empty data gracefully
+  if (!data || data.length === 0) {
+    return null;
+  }
+
   const chartWidth = width - SPACING.md * 4;
-  const barWidth = data.length > 0 ? (chartWidth - (data.length - 1) * 4) / data.length : 0;
+  const barWidth = (chartWidth - (data.length - 1) * 4) / data.length;
   const max = maxValue || Math.max(...data.map((d) => d.value), 1);
 
   return (

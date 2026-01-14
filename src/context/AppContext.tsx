@@ -47,11 +47,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
 
-  // Use ref to always have access to latest stats (avoids stale closure issues)
+  // Use refs to always have access to latest state (avoids stale closure issues)
   const statsRef = useRef<UserStats>(stats);
+  const settingsRef = useRef<UserSettings>(settings);
   useEffect(() => {
     statsRef.current = stats;
   }, [stats]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   // Calculate level info from XP
   const levelInfo = getLevelFromXP(stats.totalXP);
@@ -205,10 +209,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [updateStats]);
 
-  // Update settings
+  // Update settings - uses ref to avoid stale closure issues
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     try {
-      const newSettings = { ...settings, ...updates };
+      const currentSettings = settingsRef.current;
+      const newSettings = { ...currentSettings, ...updates };
       setSettings(newSettings);
       await saveSettings(newSettings);
 
@@ -221,7 +226,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error updating settings:', error);
     }
-  }, [settings]);
+  }, []);
 
   // Clear new achievements notification
   const clearNewAchievements = useCallback(() => {

@@ -37,6 +37,9 @@ export default function HomeScreen() {
 
   const unlockedCount = stats.unlockedLevels.length;
   const completedCount = Object.keys(stats.levelScores).length;
+  // Safe index for LEVELS array (handle edge case where unlockedCount is 0)
+  const currentLevelIndex = Math.max(0, Math.min(unlockedCount - 1, LEVELS.length - 1));
+  const currentLevel = LEVELS[currentLevelIndex];
 
   return (
     <LinearGradient
@@ -98,7 +101,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={styles.continueCard}
             onPress={() => navigation.navigate('Levels')}
-            accessibilityLabel={`Continue Level ${Math.min(unlockedCount, 8)}: ${LEVELS[Math.min(unlockedCount - 1, 7)]?.name}`}
+            accessibilityLabel={`Continue Level ${currentLevelIndex + 1}: ${currentLevel.name}`}
             accessibilityRole="button"
             accessibilityHint="Continue to your current level"
           >
@@ -108,10 +111,10 @@ export default function HomeScreen() {
               </View>
               <View style={styles.continueInfo}>
                 <Text style={styles.continueTitle}>
-                  Level {Math.min(unlockedCount, 8)}: {LEVELS[Math.min(unlockedCount - 1, 7)]?.name}
+                  Level {currentLevelIndex + 1}: {currentLevel.name}
                 </Text>
                 <Text style={styles.continueSubtitle}>
-                  {LEVELS[Math.min(unlockedCount - 1, 7)]?.description}
+                  {currentLevel.description}
                 </Text>
               </View>
             </View>
