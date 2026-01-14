@@ -5,9 +5,9 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  FlatList,
   Animated,
 } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
