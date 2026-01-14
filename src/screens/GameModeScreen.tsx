@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -140,6 +140,28 @@ export default function GameModeScreen() {
   const [reverseState, setReverseState] = useState<ReverseGameState | null>(null);
   const [reverseAnswerState, setReverseAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
+  // Track all timeouts for cleanup
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Helper to create tracked timeouts that auto-cleanup
+  const safeSetTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      callback();
+      // Remove from refs after execution
+      timeoutRefs.current = timeoutRefs.current.filter(id => id !== timeoutId);
+    }, delay);
+    timeoutRefs.current.push(timeoutId);
+    return timeoutId;
+  }, []);
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
+      timeoutRefs.current = [];
+    };
+  }, []);
+
   // Check if daily challenge is already completed today
   useEffect(() => {
     const checkDailyChallenge = async () => {
@@ -265,7 +287,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
       // Ensure unique options
@@ -330,7 +352,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const newLives = survivalState.lives - (isCorrect ? 0 : 1);
       const newScore = survivalState.score + (isCorrect ? 1 : 0);
       const newLevel = Math.floor(newScore / 5) + 1;
@@ -398,7 +420,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const shuffledIntervals = shuffleArray([...INTERVALS]);
       const currentInterval = shuffledIntervals[0];
       const options = shuffleArray(shuffledIntervals.slice(0, 4));
@@ -456,24 +478,26 @@ export default function GameModeScreen() {
 
     // Check if challenge is complete (10 correct answers)
     if (newScore >= dailyState.requiredCorrect) {
-      setTimeout(async () => {
-        try {
-          await addXP(DAILY_CHALLENGE_BONUS);
-          await updateStats({
-            dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
-          });
-          await markDailyChallengeCompleted();
-          setDailyCompleted(true);
-          setDailyAlreadyDone(true);
-          setDailyState(null);
-        } catch (error) {
-          console.error('Error completing daily challenge:', error);
-        }
+      safeSetTimeout(() => {
+        (async () => {
+          try {
+            await addXP(DAILY_CHALLENGE_BONUS);
+            await updateStats({
+              dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
+            });
+            await markDailyChallengeCompleted();
+            setDailyCompleted(true);
+            setDailyAlreadyDone(true);
+            setDailyState(null);
+          } catch (error) {
+            console.error('Error completing daily challenge:', error);
+          }
+        })();
       }, 500);
       return;
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
       // Ensure unique options
@@ -537,7 +561,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const shuffledScales = shuffleArray([...SCALES]);
       const currentScale = shuffledScales[0];
       const options = shuffleArray(shuffledScales.slice(0, 4));
@@ -639,7 +663,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const shuffledProgressions = shuffleArray([...PROGRESSIONS]);
       const currentProgression = shuffledProgressions[0];
       const options = shuffleArray(shuffledProgressions.slice(0, 4));
@@ -717,7 +741,7 @@ export default function GameModeScreen() {
 
     if (isCorrect) {
       safeHaptics.notificationAsync(NotificationFeedbackType.Success);
-      await addXP(XP_PER_CORRECT * 1.5);
+      await addXP(Math.round(XP_PER_CORRECT * 1.5));
     } else {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
@@ -728,7 +752,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const chords = [...MAJOR_CHORDS, ...MINOR_CHORDS.slice(0, 4)];
       const currentChord = chords[Math.floor(Math.random() * chords.length)];
       const inversions: ('root' | 'first' | 'second')[] = ['root', 'first', 'second'];
@@ -807,7 +831,7 @@ export default function GameModeScreen() {
       console.error('Error recording answer:', error);
     }
 
-    setTimeout(() => {
+    safeSetTimeout(() => {
       const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
       const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
 
@@ -847,10 +871,12 @@ export default function GameModeScreen() {
         const rootNote = 'C';
         await playNote(rootNote);
         // Play second note after a short delay
-        setTimeout(async () => {
-          const semitones = intervalState.currentInterval.semitones;
-          const noteIndex = (ALL_NOTES.indexOf(rootNote) + semitones) % 12;
-          await playNote(ALL_NOTES[noteIndex]);
+        const semitones = intervalState.currentInterval.semitones;
+        const noteIndex = (ALL_NOTES.indexOf(rootNote) + semitones) % 12;
+        safeSetTimeout(() => {
+          playNote(ALL_NOTES[noteIndex]).catch(err => {
+            console.error('Error playing interval note:', err);
+          });
         }, 500);
       }
     } catch (error) {

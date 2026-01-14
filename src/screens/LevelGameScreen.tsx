@@ -103,7 +103,7 @@ export default function LevelGameScreen() {
   // Initialize first question
   useEffect(() => {
     generateQuestion();
-  }, []);
+  }, [generateQuestion]);
 
   // Handle answer selection
   const handleAnswer = async (answer: string) => {

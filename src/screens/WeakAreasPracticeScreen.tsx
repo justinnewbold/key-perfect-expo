@@ -47,6 +47,20 @@ export default function WeakAreasPracticeScreen() {
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const isMountedRef = useRef(true);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Load recommendations on mount
   useEffect(() => {
@@ -144,7 +158,10 @@ export default function WeakAreasPracticeScreen() {
     updatedSessionItems[practiceState.currentIndex] = updatedItem;
 
     // Move to next question or finish
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
+      // Prevent setState after unmount
+      if (!isMountedRef.current) return;
+
       const nextIndex = practiceState.currentIndex + 1;
 
       if (nextIndex >= practiceState.sessionItems.length) {
@@ -173,8 +190,9 @@ export default function WeakAreasPracticeScreen() {
         setAnswerState('default');
         setSelectedAnswer(null);
       }
+      timeoutRef.current = null;
     }, 800);
-  }, [practiceState, answerState, addXP, recordAnswer, scaleAnim, shakeAnim]);
+  }, [practiceState, answerState, addXP, recordAnswer]);
 
   // Render loading/empty state
   if (!recommendation) {

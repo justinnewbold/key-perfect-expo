@@ -28,7 +28,9 @@ function MasteryProgress({ categories }: MasteryProgressProps) {
             </View>
             <View style={styles.textContainer}>
               <Text style={styles.categoryName}>{category.name}</Text>
-              <Text style={styles.levelLabel}>{LEVEL_LABELS[category.level]}</Text>
+              <Text style={styles.levelLabel}>
+                {LEVEL_LABELS[Math.max(0, Math.min(category.level, LEVEL_LABELS.length - 1))]}
+              </Text>
             </View>
           </View>
           <View style={styles.progressContainer}>

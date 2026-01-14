@@ -23,7 +23,7 @@ export default function NetworkStatusIndicator({
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [status.isConnected, fadeAnim]);
+  }, [status.isConnected]); // fadeAnim from useRef doesn't change
 
   // Pulse animation when syncing
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function NetworkStatusIndicator({
     } else {
       pulseAnim.setValue(1);
     }
-  }, [status.isSyncing, pulseAnim]);
+  }, [status.isSyncing]); // pulseAnim from useRef doesn't change
 
   // Compact mode: just show a small indicator
   if (compact) {

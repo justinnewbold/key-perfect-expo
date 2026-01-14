@@ -40,12 +40,17 @@ export default function SettingsScreen() {
       'This will delete all your progress, stats, and achievements. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reset', 
+        {
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await clearAllData();
-            Alert.alert('Success', 'All progress has been reset. Please restart the app.');
+            try {
+              await clearAllData();
+              Alert.alert('Success', 'All progress has been reset. Please restart the app.');
+            } catch (error) {
+              console.error('Error clearing data:', error);
+              Alert.alert('Error', 'Failed to reset progress. Please try again.');
+            }
           }
         },
       ]

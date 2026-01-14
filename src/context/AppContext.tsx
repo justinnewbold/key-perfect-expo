@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { UserStats, UserSettings, DEFAULT_STATS, DEFAULT_SETTINGS, Instrument } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { UserStats, UserSettings, DEFAULT_STATS, DEFAULT_SETTINGS, Instrument, ChordType } from '../types';
 import { 
   loadStats, 
   saveStats, 
@@ -47,6 +47,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [newAchievements, setNewAchievements] = useState<string[]>([]);
 
+  // Use refs to always have access to latest state (avoids stale closure issues)
+  const statsRef = useRef<UserStats>(stats);
+  const settingsRef = useRef<UserSettings>(settings);
+  useEffect(() => {
+    statsRef.current = stats;
+  }, [stats]);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
   // Calculate level info from XP
   const levelInfo = getLevelFromXP(stats.totalXP);
 
@@ -79,10 +89,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadData();
   }, []);
 
-  // Update stats
+  // Update stats - uses ref to avoid stale closure issues
   const updateStats = useCallback(async (updates: Partial<UserStats>) => {
     try {
-      const newStats = { ...stats, ...updates };
+      const currentStats = statsRef.current;
+      const newStats = { ...currentStats, ...updates };
       setStats(newStats);
       await saveStats(newStats);
 
@@ -102,76 +113,80 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error updating stats:', error);
     }
-  }, [stats]);
+  }, []);
 
-  // Record an answer
+  // Record an answer - uses ref to avoid stale closure issues
   const recordAnswer = useCallback(async (
     correct: boolean,
     item: string,
     type: 'note' | 'chord' | 'interval' | 'scale'
   ) => {
     try {
+      const currentStats = statsRef.current;
       const today = new Date().toISOString().split('T')[0];
       const accuracyKey = `${type}Accuracy` as keyof Pick<UserStats, 'noteAccuracy' | 'chordAccuracy' | 'intervalAccuracy' | 'scaleAccuracy'>;
 
-      const currentAccuracy = stats[accuracyKey][item] || { correct: 0, total: 0 };
+      const currentAccuracy = currentStats[accuracyKey][item] || { correct: 0, total: 0 };
       const newAccuracy = {
         correct: currentAccuracy.correct + (correct ? 1 : 0),
         total: currentAccuracy.total + 1,
       };
 
-      const newStreak = calculateStreak(stats.lastPracticeDate, stats.currentStreak);
-      const practiceDates = stats.practiceDates.includes(today)
-        ? stats.practiceDates
-        : [...stats.practiceDates, today];
+      const newStreak = calculateStreak(currentStats.lastPracticeDate, currentStats.currentStreak);
+      const practiceDates = currentStats.practiceDates.includes(today)
+        ? currentStats.practiceDates
+        : [...currentStats.practiceDates, today];
 
       await updateStats({
-        totalAttempts: stats.totalAttempts + 1,
-        correctAnswers: stats.correctAnswers + (correct ? 1 : 0),
-        wrongAnswers: stats.wrongAnswers + (correct ? 0 : 1),
+        totalAttempts: currentStats.totalAttempts + 1,
+        correctAnswers: currentStats.correctAnswers + (correct ? 1 : 0),
+        wrongAnswers: currentStats.wrongAnswers + (correct ? 0 : 1),
         currentStreak: newStreak,
-        longestStreak: Math.max(stats.longestStreak, newStreak),
+        longestStreak: Math.max(currentStats.longestStreak, newStreak),
         lastPracticeDate: today,
         practiceDates,
         [accuracyKey]: {
-          ...stats[accuracyKey],
+          ...currentStats[accuracyKey],
           [item]: newAccuracy,
         },
       });
     } catch (error) {
       console.error('Error recording answer:', error);
     }
-  }, [stats, updateStats]);
+  }, [updateStats]);
 
-  // Add XP
+  // Add XP - uses ref to avoid stale closure issues
   const addXP = useCallback(async (amount: number) => {
     try {
+      const currentStats = statsRef.current;
       await updateStats({
-        totalXP: stats.totalXP + amount,
+        totalXP: currentStats.totalXP + Math.round(amount),
       });
     } catch (error) {
       console.error('Error adding XP:', error);
     }
-  }, [stats, updateStats]);
+  }, [updateStats]);
 
-  // Unlock a level
+  // Unlock a level - uses ref to avoid stale closure issues
   const unlockLevel = useCallback(async (levelId: number) => {
     try {
-      if (!stats.unlockedLevels.includes(levelId)) {
+      const currentStats = statsRef.current;
+      if (!currentStats.unlockedLevels.includes(levelId)) {
         await updateStats({
-          unlockedLevels: [...stats.unlockedLevels, levelId],
+          unlockedLevels: [...currentStats.unlockedLevels, levelId],
         });
       }
     } catch (error) {
       console.error('Error unlocking level:', error);
     }
-  }, [stats, updateStats]);
+  }, [updateStats]);
 
-  // Complete a level
+  // Complete a level - uses ref to avoid stale closure issues
   const completeLevel = useCallback(async (levelId: number, correct: number, total: number) => {
     try {
+      const currentStats = statsRef.current;
       const perfect = correct === total;
-      const existingScore = stats.levelScores[levelId];
+      const existingScore = currentStats.levelScores[levelId];
 
       // Only update if better score or first attempt
       const shouldUpdate = !existingScore || correct > existingScore.correct;
@@ -179,25 +194,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (shouldUpdate) {
         await updateStats({
           levelScores: {
-            ...stats.levelScores,
+            ...currentStats.levelScores,
             [levelId]: { correct, total, perfect },
           },
-          levelsCompleted: Math.max(stats.levelsCompleted, levelId),
-          perfectLevels: stats.perfectLevels + (perfect && (!existingScore || !existingScore.perfect) ? 1 : 0),
-          unlockedLevels: stats.unlockedLevels.includes(levelId + 1)
-            ? stats.unlockedLevels
-            : [...stats.unlockedLevels, levelId + 1],
+          levelsCompleted: Math.max(currentStats.levelsCompleted, levelId),
+          perfectLevels: currentStats.perfectLevels + (perfect && (!existingScore || !existingScore.perfect) ? 1 : 0),
+          unlockedLevels: currentStats.unlockedLevels.includes(levelId + 1)
+            ? currentStats.unlockedLevels
+            : [...currentStats.unlockedLevels, levelId + 1],
         });
       }
     } catch (error) {
       console.error('Error completing level:', error);
     }
-  }, [stats, updateStats]);
+  }, [updateStats]);
 
-  // Update settings
+  // Update settings - uses ref to avoid stale closure issues
   const updateSettings = useCallback(async (updates: Partial<UserSettings>) => {
     try {
-      const newSettings = { ...settings, ...updates };
+      const currentSettings = settingsRef.current;
+      const newSettings = { ...currentSettings, ...updates };
       setSettings(newSettings);
       await saveSettings(newSettings);
 
@@ -210,7 +226,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error updating settings:', error);
     }
-  }, [settings]);
+  }, []);
 
   // Clear new achievements notification
   const clearNewAchievements = useCallback(() => {
@@ -223,7 +239,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const playChord = useCallback(async (root: string, type: string, octave: number = 4, duration: number = 1.5) => {
-    await audioEngine.playChord(root, type as any, octave, duration);
+    await audioEngine.playChord(root, type as ChordType, octave, duration);
   }, []);
 
   const value: AppContextType = {

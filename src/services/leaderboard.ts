@@ -77,7 +77,7 @@ export const AVATAR_EMOJIS = [
 
 // Generate a unique user ID
 function generateUserId(): string {
-  return 'user_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+  return 'user_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 11);
 }
 
 // Get or create user profile

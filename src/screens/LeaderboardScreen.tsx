@@ -67,7 +67,9 @@ export default function LeaderboardScreen() {
     setChallenges(ch);
     setProfile(pr);
     setFriendCode(fc);
-    setNewName(pr.displayName);
+    if (pr) {
+      setNewName(pr.displayName);
+    }
   }, []);
 
   useEffect(() => {

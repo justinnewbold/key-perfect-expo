@@ -67,7 +67,7 @@ export function useNetworkStatus() {
     data: unknown
   ) => {
     const newItem: SyncQueueItem = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       action,
       data,
       timestamp: Date.now(),
