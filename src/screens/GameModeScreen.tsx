@@ -888,7 +888,8 @@ export default function GameModeScreen() {
   if (modeId === 'speed' && speedState) {
     if (speedState.timeLeft === 0) {
       return (
-        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.container}>
+          <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>⏱️</Text>
             <Text style={styles.resultTitle}>Time's Up!</Text>
@@ -911,12 +912,13 @@ export default function GameModeScreen() {
               style={{ marginTop: SPACING.sm }}
             />
           </View>
-        </LinearGradient>
+        </View>
       );
     }
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={endSpeedMode}>
@@ -961,7 +963,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -969,7 +971,8 @@ export default function GameModeScreen() {
   if (modeId === 'survival' && survivalState) {
     if (survivalState.lives === 0) {
       return (
-        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.container}>
+          <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>💀</Text>
             <Text style={styles.resultTitle}>Game Over</Text>
@@ -993,12 +996,13 @@ export default function GameModeScreen() {
               style={{ marginTop: SPACING.sm }}
             />
           </View>
-        </LinearGradient>
+        </View>
       );
     }
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1048,7 +1052,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -1059,7 +1063,8 @@ export default function GameModeScreen() {
       : 0;
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1107,7 +1112,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -1116,7 +1121,8 @@ export default function GameModeScreen() {
     // Show "already completed today" message
     if (dailyAlreadyDone && !dailyState && !dailyCompleted) {
       return (
-        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.container}>
+          <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>✅</Text>
             <Text style={styles.resultTitle}>Already Completed!</Text>
@@ -1130,13 +1136,14 @@ export default function GameModeScreen() {
               style={{ marginTop: SPACING.lg }}
             />
           </View>
-        </LinearGradient>
+        </View>
       );
     }
 
     if (dailyCompleted) {
       return (
-        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.container}>
+          <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>🎉</Text>
             <Text style={styles.resultTitle}>Daily Complete!</Text>
@@ -1149,13 +1156,14 @@ export default function GameModeScreen() {
               style={{ marginTop: SPACING.lg }}
             />
           </View>
-        </LinearGradient>
+        </View>
       );
     }
 
     if (dailyState) {
       return (
-        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <View style={styles.container}>
+          <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
           <View style={styles.gameContent}>
             <View style={styles.header}>
               <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1204,7 +1212,7 @@ export default function GameModeScreen() {
               })}
             </View>
           </View>
-        </LinearGradient>
+        </View>
       );
     }
   }
@@ -1216,7 +1224,8 @@ export default function GameModeScreen() {
       : 0;
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1263,7 +1272,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -1274,7 +1283,8 @@ export default function GameModeScreen() {
       : 0;
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1322,7 +1332,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -1339,7 +1349,8 @@ export default function GameModeScreen() {
     };
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1388,7 +1399,7 @@ export default function GameModeScreen() {
             })}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -1399,7 +1410,8 @@ export default function GameModeScreen() {
       : 0;
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -1442,17 +1454,18 @@ export default function GameModeScreen() {
             style={{ marginTop: SPACING.lg }}
           />
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   // Loading or fallback
   return (
-    <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
       <View style={styles.resultContainer}>
         <Text style={styles.resultTitle}>Loading...</Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 

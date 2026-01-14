@@ -83,11 +83,12 @@ export default function StatsScreen() {
   ];
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-      style={styles.container}
-      pointerEvents="box-none"
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -305,7 +306,7 @@ export default function StatsScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 

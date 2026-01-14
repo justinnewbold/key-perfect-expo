@@ -145,11 +145,12 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-      style={styles.container}
-      pointerEvents="box-none"
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
       {/* Skip button */}
       {!isLastSlide && (
         <TouchableOpacity
@@ -209,7 +210,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           />
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 

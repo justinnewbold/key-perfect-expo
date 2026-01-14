@@ -4,7 +4,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
@@ -43,11 +43,12 @@ export default function HomeScreen() {
   const currentLevel = LEVELS[currentLevelIndex];
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-      style={styles.container}
-      pointerEvents="box-none"
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -225,7 +226,7 @@ export default function HomeScreen() {
         {/* Bottom spacing */}
         <View style={{ height: 100 }} />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 

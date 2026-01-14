@@ -197,18 +197,20 @@ export default function WeakAreasPracticeScreen() {
   // Render loading/empty state
   if (!recommendation) {
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.centerContent}>
           <Text style={styles.loadingText}>Analyzing your progress...</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   // Render no weak areas
   if (recommendation.items.length === 0) {
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -235,7 +237,7 @@ export default function WeakAreasPracticeScreen() {
             style={{ marginTop: SPACING.lg }}
           />
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -245,7 +247,8 @@ export default function WeakAreasPracticeScreen() {
     const accuracy = Math.round((practiceState.correctCount / practiceState.totalCount) * 100);
 
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <View style={styles.centerContent}>
           <Ionicons
             name={accuracy >= 70 ? 'checkmark-circle' : 'refresh-circle'}
@@ -297,14 +300,15 @@ export default function WeakAreasPracticeScreen() {
             style={{ marginTop: SPACING.sm }}
           />
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   // Render overview (before starting)
   if (!practiceState) {
     return (
-      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container} pointerEvents="box-none">
+      <View style={styles.container}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -387,7 +391,7 @@ export default function WeakAreasPracticeScreen() {
             style={{ marginTop: SPACING.md, marginBottom: SPACING.xxl }}
           />
         </ScrollView>
-      </LinearGradient>
+      </View>
     );
   }
 
@@ -395,7 +399,8 @@ export default function WeakAreasPracticeScreen() {
   const progress = (practiceState.currentIndex / practiceState.sessionItems.length) * 100;
 
   return (
-    <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+    <View style={styles.container}>
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} pointerEvents="none" />
       <View style={styles.gameContent}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -479,7 +484,7 @@ export default function WeakAreasPracticeScreen() {
           </Text>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 

@@ -324,11 +324,12 @@ export default function LearnScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-      style={styles.container}
-      pointerEvents="box-none"
-    >
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -416,13 +417,13 @@ export default function LearnScreen() {
               >
                 <Ionicons name="close" size={28} color={COLORS.textPrimary} />
               </TouchableOpacity>
-              
+
               {renderSectionContent()}
             </LinearGradient>
           </View>
         </View>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 
