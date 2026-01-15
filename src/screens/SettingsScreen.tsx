@@ -15,8 +15,10 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import InstrumentSelector from '../components/InstrumentSelector';
+import NotificationSettings from '../components/NotificationSettings';
 import { Instrument } from '../types';
 import { clearAllData } from '../utils/storage';
+import { restorePurchases, getOwnedInstrumentPacks } from '../services/payments';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -41,6 +43,46 @@ export default function SettingsScreen() {
         ownedInstrumentPacks: [...currentPacks, packId],
       });
     }
+  };
+
+  const handleRestorePurchases = async () => {
+    Alert.alert(
+      'Restore Purchases',
+      'This will restore all your previous purchases.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            try {
+              const result = await restorePurchases();
+
+              if (result.success) {
+                // Update owned packs from payment service
+                const ownedPacks = await getOwnedInstrumentPacks();
+                updateSettings({ ownedInstrumentPacks: ownedPacks });
+
+                Alert.alert(
+                  'Success',
+                  result.restoredCount > 0
+                    ? `Restored ${result.restoredCount} purchase(s)!`
+                    : 'No previous purchases found.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert(
+                  'Error',
+                  result.error || 'Unable to restore purchases. Please try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Error', 'An unexpected error occurred.', [{ text: 'OK' }]);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleResetProgress = () => {
@@ -140,7 +182,19 @@ export default function SettingsScreen() {
             onSelectInstrument={handleInstrumentSelect}
             onPurchasePack={handlePurchasePack}
           />
+
+          {/* Restore Purchases Button */}
+          <TouchableOpacity
+            style={styles.restoreButton}
+            onPress={handleRestorePurchases}
+          >
+            <Ionicons name="refresh" size={18} color={COLORS.info} />
+            <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+          </TouchableOpacity>
         </GlassCard>
+
+        {/* Notifications */}
+        <NotificationSettings />
 
         {/* Sound Customization */}
         <GlassCard style={styles.section}>
@@ -504,6 +558,24 @@ const styles = StyleSheet.create({
   ownedBadgeText: {
     color: COLORS.success,
     fontSize: 12,
+    fontWeight: '600',
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.info + '20',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.info + '40',
+  },
+  restoreButtonText: {
+    color: COLORS.info,
+    fontSize: 14,
     fontWeight: '600',
   },
   toggleButton: {

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from './GlassCard';
 import { INSTRUMENT_PACKS, BUNDLE_PACK, InstrumentPack, InstrumentType, isInstrumentOwned } from '../types/instruments';
+import { purchaseProduct, getProductDetails } from '../services/payments';
 
 interface InstrumentSelectorProps {
   selectedInstrument: string;
@@ -34,24 +35,54 @@ export default function InstrumentSelector({
     }
   };
 
-  const handlePurchase = () => {
-    if (selectedPack) {
-      Alert.alert(
-        'Purchase ' + selectedPack.name,
-        `This would open the purchase flow for ${selectedPack.price}. For now, this is a demo.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Demo Purchase',
-            onPress: () => {
-              onPurchasePack(selectedPack.id);
-              setShowModal(false);
-              Alert.alert('Success!', `${selectedPack.name} unlocked! (Demo)`);
-            },
+  const handlePurchase = async () => {
+    if (!selectedPack) return;
+
+    const product = getProductDetails(selectedPack.id);
+    if (!product) return;
+
+    Alert.alert(
+      'Confirm Purchase',
+      `Purchase ${selectedPack.name} for ${selectedPack.price}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Buy Now',
+          onPress: async () => {
+            // Show loading
+            Alert.alert('Processing', 'Please wait...');
+
+            try {
+              const result = await purchaseProduct(selectedPack.id);
+
+              if (result.success) {
+                // Purchase successful
+                onPurchasePack(selectedPack.id);
+                setShowModal(false);
+                Alert.alert(
+                  'Purchase Successful! 🎉',
+                  `${selectedPack.name} has been unlocked. Enjoy your new instruments!`,
+                  [{ text: 'Great!', onPress: () => {} }]
+                );
+              } else {
+                // Purchase failed
+                Alert.alert(
+                  'Purchase Failed',
+                  result.error || 'Unable to complete purchase. Please try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            } catch (error) {
+              Alert.alert(
+                'Error',
+                'An unexpected error occurred. Please try again.',
+                [{ text: 'OK' }]
+              );
+            }
           },
-        ]
-      );
-    }
+        },
+      ]
+    );
   };
 
   const allInstruments = INSTRUMENT_PACKS.flatMap(pack => pack.instruments);
