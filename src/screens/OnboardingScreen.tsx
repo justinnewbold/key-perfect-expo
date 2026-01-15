@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
+import { FlatList } from '../utils/scrollComponents';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
@@ -67,7 +67,7 @@ interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<any>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const goToNext = () => {

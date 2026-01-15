@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { ScrollView } from '../utils/scrollComponents';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
