@@ -11,6 +11,7 @@ import XPDisplay from '../components/XPDisplay';
 import PracticeCoach from '../components/PracticeCoach';
 import EnhancedAICoach from '../components/EnhancedAICoach';
 import TournamentBanner from '../components/TournamentBanner';
+import StreakDashboard from '../components/StreakDashboard';
 import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -102,6 +103,11 @@ export default function HomeScreen() {
             </GlassCard>
           ))}
         </View>
+
+        {/* Streak Dashboard */}
+        {stats.currentStreak > 0 && (
+          <StreakDashboard style={styles.section} />
+        )}
 
         {/* Weekly Tournament Banner */}
         <TournamentBanner style={styles.section} />
