@@ -9,6 +9,8 @@ import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
 import PracticeCoach from '../components/PracticeCoach';
+import EnhancedAICoach from '../components/EnhancedAICoach';
+import TournamentBanner from '../components/TournamentBanner';
 import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -101,11 +103,13 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* AI Practice Coach */}
+        {/* Weekly Tournament Banner */}
+        <TournamentBanner style={styles.section} />
+
+        {/* Enhanced AI Coach */}
         {stats.totalAttempts > 10 && (
-          <PracticeCoach
+          <EnhancedAICoach
             stats={stats}
-            onStartPractice={handleStartPractice}
             style={styles.section}
           />
         )}

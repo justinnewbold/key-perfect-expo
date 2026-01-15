@@ -35,7 +35,7 @@ import {
 import { shuffleArray, getWrongOptions } from '../utils/audioUtils';
 import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
 import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../utils/storage';
-import { submitScore, syncProfileWithStats } from '../services/leaderboard';
+import { submitScore, syncProfileWithStats, submitTournamentScore } from '../services/leaderboard';
 
 const { width } = Dimensions.get('window');
 
@@ -352,6 +352,9 @@ export default function GameModeScreen() {
         // Submit to leaderboard
         const result = await submitScore('speed', speedState.score);
 
+        // Submit to tournament
+        await submitTournamentScore(speedState.score);
+
         // Sync profile with stats
         await syncProfileWithStats({
           totalXP: stats.totalXP,
@@ -430,6 +433,9 @@ export default function GameModeScreen() {
 
             // Submit to leaderboard
             await submitScore('survival', newScore);
+
+            // Submit to tournament
+            await submitTournamentScore(newScore);
 
             // Sync profile with stats
             await syncProfileWithStats({
