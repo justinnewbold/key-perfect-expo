@@ -222,6 +222,17 @@ export function checkAchievements(stats: UserStats): string[] {
           earned = stats.dailyChallengesCompleted >= achievement.requirement;
         } else if (achievement.id === 'chord_master') {
           earned = stats.levelsCompleted >= 5;
+        } else if (achievement.id === 'perfect_pitch') {
+          // Check if all 8 levels have been completed with perfect scores
+          earned = stats.perfectLevels >= achievement.requirement;
+        } else if (achievement.id === 'sharp_ears') {
+          // Check if all sharp notes have been identified correctly without mistakes
+          const sharpNotes = ['C#', 'D#', 'F#', 'G#', 'A#'];
+          const allSharpsCorrect = sharpNotes.every(note => {
+            const accuracy = stats.noteAccuracy[note];
+            return accuracy && accuracy.correct > 0 && accuracy.correct === accuracy.total;
+          });
+          earned = allSharpsCorrect;
         }
         break;
     }

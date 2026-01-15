@@ -92,6 +92,7 @@ interface ReverseGameState {
   score: number;
   attempts: number;
   targetItem: string;
+  options: string[];
   hasPlayed: boolean;
   isCorrect: boolean | null;
 }
@@ -478,21 +479,25 @@ export default function GameModeScreen() {
 
     // Check if challenge is complete (10 correct answers)
     if (newScore >= dailyState.requiredCorrect) {
+      // Complete the daily challenge with proper async handling
+      const completeChallenge = async () => {
+        try {
+          await addXP(DAILY_CHALLENGE_BONUS);
+          await updateStats({
+            dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
+          });
+          await markDailyChallengeCompleted();
+          // Update all state together after async operations complete
+          setDailyCompleted(true);
+          setDailyAlreadyDone(true);
+          setDailyState(null);
+        } catch (error) {
+          console.error('Error completing daily challenge:', error);
+        }
+      };
+
       safeSetTimeout(() => {
-        (async () => {
-          try {
-            await addXP(DAILY_CHALLENGE_BONUS);
-            await updateStats({
-              dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
-            });
-            await markDailyChallengeCompleted();
-            setDailyCompleted(true);
-            setDailyAlreadyDone(true);
-            setDailyState(null);
-          } catch (error) {
-            console.error('Error completing daily challenge:', error);
-          }
-        })();
+        completeChallenge();
       }, 500);
       return;
     }
@@ -774,11 +779,14 @@ export default function GameModeScreen() {
   const startReverseMode = () => {
     const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
     const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+    // Generate 4 unique options including the target
+    const options = shuffleArray([...new Set([targetItem, ...getWrongOptions(targetItem, allItems, 3)])]);
 
     setReverseState({
       score: 0,
       attempts: 0,
       targetItem,
+      options,
       hasPlayed: false,
       isCorrect: null,
     });
@@ -809,12 +817,12 @@ export default function GameModeScreen() {
     }
   };
 
-  // Handle Reverse Mode confirmation
-  const handleReverseConfirm = async () => {
+  // Handle Reverse Mode answer
+  const handleReverseAnswer = async (answer: string) => {
     if (!reverseState || reverseAnswerState !== 'default') return;
 
-    // Compare what user played with target
-    const isCorrect = reverseState.hasPlayed;
+    // Validate the user's answer
+    const isCorrect = answer === reverseState.targetItem;
     setReverseAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
@@ -834,12 +842,15 @@ export default function GameModeScreen() {
     safeSetTimeout(() => {
       const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
       const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+      // Generate new options for next question
+      const options = shuffleArray([...new Set([targetItem, ...getWrongOptions(targetItem, allItems, 3)])]);
 
       setReverseState({
         ...reverseState,
         score: reverseState.score + (isCorrect ? 1 : 0),
         attempts: reverseState.attempts + 1,
         targetItem,
+        options,
         hasPlayed: false,
         isCorrect: null,
       });
@@ -1413,11 +1424,6 @@ export default function GameModeScreen() {
             Score: {reverseState.score} / {reverseState.attempts}
           </Text>
 
-          <GlassCard style={styles.targetCard}>
-            <Text style={styles.targetLabel}>Play this sound:</Text>
-            <Text style={styles.targetItem}>{reverseState.targetItem}</Text>
-          </GlassCard>
-
           <TouchableOpacity style={styles.playButton} onPress={playReverseTarget}>
             <LinearGradient
               colors={[COLORS.reverseMode, COLORS.reverseMode + 'CC']}
@@ -1428,19 +1434,30 @@ export default function GameModeScreen() {
           </TouchableOpacity>
 
           <Text style={styles.instruction}>
-            {reverseState.hasPlayed
-              ? 'Sound played! Press confirm to continue.'
-              : 'Press above to hear the sound, then confirm.'}
+            Click to hear the sound, then identify it below
           </Text>
 
-          <Button
-            title={reverseState.hasPlayed ? 'Confirm & Next' : 'Play First'}
-            onPress={handleReverseConfirm}
-            variant={reverseState.hasPlayed ? 'success' : 'secondary'}
-            size="lg"
-            disabled={!reverseState.hasPlayed || reverseAnswerState !== 'default'}
-            style={{ marginTop: SPACING.lg }}
-          />
+          <View style={styles.answersGrid}>
+            {reverseState.options.map((option) => {
+              let buttonStyle = styles.answerButton;
+              if (reverseAnswerState === 'correct' && option === reverseState.targetItem) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (reverseAnswerState === 'incorrect' && option === reverseState.targetItem) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={buttonStyle}
+                  onPress={() => handleReverseAnswer(option)}
+                  disabled={reverseAnswerState !== 'default'}
+                >
+                  <Text style={styles.answerText}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </LinearGradient>
     );
