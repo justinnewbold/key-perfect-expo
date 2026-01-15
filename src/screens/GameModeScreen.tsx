@@ -35,6 +35,7 @@ import {
 import { shuffleArray, getWrongOptions } from '../utils/audioUtils';
 import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
 import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../utils/storage';
+import { submitScore, syncProfileWithStats } from '../services/leaderboard';
 
 const { width } = Dimensions.get('window');
 
@@ -341,11 +342,29 @@ export default function GameModeScreen() {
 
   // End Speed Mode
   const endSpeedMode = async () => {
-    if (speedState && speedState.score > stats.speedModeHighScore) {
+    if (speedState) {
       try {
-        await updateStats({ speedModeHighScore: speedState.score });
+        // Update high score if beaten
+        if (speedState.score > stats.speedModeHighScore) {
+          await updateStats({ speedModeHighScore: speedState.score });
+        }
+
+        // Submit to leaderboard
+        const result = await submitScore('speed', speedState.score);
+
+        // Sync profile with stats
+        await syncProfileWithStats({
+          totalXP: stats.totalXP,
+          currentStreak: stats.currentStreak,
+          longestStreak: stats.longestStreak,
+        });
+
+        // Show feedback if personal best
+        if (result.isPersonalBest && speedState.score > 0) {
+          safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+        }
       } catch (error) {
-        console.error('Error updating stats:', error);
+        console.error('Error ending speed mode:', error);
       }
     }
     navigation.goBack();
@@ -402,10 +421,27 @@ export default function GameModeScreen() {
       const newLevel = Math.floor(newScore / 5) + 1;
 
       if (newLives === 0) {
-        // Game over
-        if (newScore > stats.survivalModeHighScore) {
-          updateStats({ survivalModeHighScore: newScore }).catch(console.error);
-        }
+        // Game over - submit to leaderboard
+        (async () => {
+          try {
+            if (newScore > stats.survivalModeHighScore) {
+              await updateStats({ survivalModeHighScore: newScore });
+            }
+
+            // Submit to leaderboard
+            await submitScore('survival', newScore);
+
+            // Sync profile with stats
+            await syncProfileWithStats({
+              totalXP: stats.totalXP,
+              currentStreak: stats.currentStreak,
+              longestStreak: stats.longestStreak,
+            });
+          } catch (error) {
+            console.error('Error submitting survival score:', error);
+          }
+        })();
+
         setSurvivalState(prev => prev ? { ...prev, lives: 0, score: newScore } : prev);
         return;
       }

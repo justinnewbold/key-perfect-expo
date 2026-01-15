@@ -451,6 +451,7 @@ export interface UserSettings {
   playbackSpeed: number; // 0.5 to 2.0
   intervalPlayMode: 'harmonic' | 'melodic'; // Harmonic (together) or melodic (sequential)
   reducedMotion: boolean; // Accessibility: reduce animations
+  ownedInstrumentPacks: string[]; // IDs of purchased instrument packs
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -469,4 +470,5 @@ export const DEFAULT_SETTINGS: UserSettings = {
   playbackSpeed: 1.0,
   intervalPlayMode: 'harmonic',
   reducedMotion: false,
+  ownedInstrumentPacks: ['free'], // Start with free pack
 };

@@ -8,7 +8,8 @@ import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
-import { GAME_MODES, LEVELS } from '../types';
+import PracticeCoach from '../components/PracticeCoach';
+import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
 
@@ -41,6 +42,15 @@ export default function HomeScreen() {
   // Safe index for LEVELS array (handle edge case where unlockedCount is 0)
   const currentLevelIndex = Math.max(0, Math.min(unlockedCount - 1, LEVELS.length - 1));
   const currentLevel = LEVELS[currentLevelIndex];
+
+  const handleStartPractice = (weakAreas: WeakArea[]) => {
+    if (weakAreas.length > 0) {
+      navigation.navigate('WeakAreas');
+    } else {
+      // No weak areas, suggest challenge modes
+      navigation.navigate('GameModes');
+    }
+  };
 
   return (
     <LinearGradient
@@ -90,6 +100,15 @@ export default function HomeScreen() {
             </GlassCard>
           ))}
         </View>
+
+        {/* AI Practice Coach */}
+        {stats.totalAttempts > 10 && (
+          <PracticeCoach
+            stats={stats}
+            onStartPractice={handleStartPractice}
+            style={styles.section}
+          />
+        )}
 
         {/* Continue Learning */}
         <GlassCard style={styles.section}>
