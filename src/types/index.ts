@@ -257,6 +257,19 @@ export const STREAK_10_BONUS = 25;
 export const PERFECT_LEVEL_BONUS = 50;
 export const DAILY_CHALLENGE_BONUS = 100;
 
+// Combo Multipliers
+export const COMBO_MULTIPLIERS = {
+  3: 1.5,  // 3 correct in a row: 1.5x XP
+  5: 2.0,  // 5 correct in a row: 2x XP
+  10: 3.0, // 10 correct in a row: 3x XP
+};
+
+export const COMBO_MESSAGES = {
+  3: "🔥 On Fire!",
+  5: "🚀 Unstoppable!",
+  10: "⭐ LEGENDARY!",
+};
+
 export function calculateXPForLevel(level: number): number {
   return Math.floor(100 * Math.pow(level, 1.5));
 }
@@ -275,6 +288,38 @@ export function getLevelFromXP(totalXP: number): { level: number; currentXP: num
     currentXP: remainingXP,
     nextLevelXP: xpNeeded,
   };
+}
+
+// Calculate XP with combo multiplier applied
+export function calculateComboXP(baseXP: number, comboCount: number): number {
+  let multiplier = 1.0;
+
+  // Apply highest applicable multiplier
+  if (comboCount >= 10) {
+    multiplier = COMBO_MULTIPLIERS[10];
+  } else if (comboCount >= 5) {
+    multiplier = COMBO_MULTIPLIERS[5];
+  } else if (comboCount >= 3) {
+    multiplier = COMBO_MULTIPLIERS[3];
+  }
+
+  return Math.round(baseXP * multiplier);
+}
+
+// Get combo message for a given combo count
+export function getComboMessage(comboCount: number): string | null {
+  if (comboCount === 10) return COMBO_MESSAGES[10];
+  if (comboCount === 5) return COMBO_MESSAGES[5];
+  if (comboCount === 3) return COMBO_MESSAGES[3];
+  return null;
+}
+
+// Get combo multiplier for display
+export function getComboMultiplier(comboCount: number): number {
+  if (comboCount >= 10) return COMBO_MULTIPLIERS[10];
+  if (comboCount >= 5) return COMBO_MULTIPLIERS[5];
+  if (comboCount >= 3) return COMBO_MULTIPLIERS[3];
+  return 1.0;
 }
 
 export function getLevelTitle(level: number): string {
