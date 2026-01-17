@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from './GlassCard';
@@ -46,7 +46,7 @@ export default function StreakDashboard({ style }: StreakDashboardProps) {
     setActiveMultipliers(multipliersData);
   };
 
-  const handleClaimReward = async (milestone: StreakMilestone) => {
+  const handleClaimReward = useCallback(async (milestone: StreakMilestone) => {
     if (milestone.claimed) return;
 
     const result = await claimMilestoneRewards(
@@ -70,7 +70,7 @@ export default function StreakDashboard({ style }: StreakDashboardProps) {
     } else {
       Alert.alert('Error', result.error || 'Failed to claim rewards');
     }
-  };
+  }, [addXP, updateSettings, settings.ownedInstrumentPacks]);
 
   const getRewardsSummary = (rewards: any[]): string => {
     const summary: string[] = [];

@@ -34,17 +34,26 @@ export default function EnhancedAICoach({ stats, style }: EnhancedAICoachProps) 
   }, [stats]);
 
   const loadData = async () => {
-    const [analyticsData, predictionData, goalsData, heatMapData] = await Promise.all([
-      getLearningAnalytics(),
-      predictProgress(stats),
-      generateDailyGoals(stats),
-      getSkillHeatMap(stats),
-    ]);
+    try {
+      const [analyticsData, predictionData, goalsData, heatMapData] = await Promise.all([
+        getLearningAnalytics(),
+        predictProgress(stats),
+        generateDailyGoals(stats),
+        getSkillHeatMap(stats),
+      ]);
 
-    setAnalytics(analyticsData);
-    setPrediction(predictionData);
-    setDailyGoals(goalsData);
-    setHeatMap(heatMapData);
+      setAnalytics(analyticsData);
+      setPrediction(predictionData);
+      setDailyGoals(goalsData);
+      setHeatMap(heatMapData);
+    } catch (error) {
+      console.error('Failed to load AI coach data:', error);
+      // Set empty state to prevent crashes
+      setAnalytics(null);
+      setPrediction(null);
+      setDailyGoals([]);
+      setHeatMap(null);
+    }
   };
 
   const getTrendIcon = (trend: string) => {

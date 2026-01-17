@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
@@ -25,9 +25,24 @@ export default function DuetModeLobby({ visible, onClose, onStartGame }: DuetMod
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (visible) {
-      loadSessions();
-    }
+    if (!visible) return;
+
+    let isMounted = true;
+
+    const loadSessions = async () => {
+      if (isMounted) setRefreshing(true);
+      const sessions = await getActiveDuetSessions();
+      if (isMounted) {
+        setActiveSessions(sessions);
+        setRefreshing(false);
+      }
+    };
+
+    loadSessions();
+
+    return () => {
+      isMounted = false;
+    };
   }, [visible]);
 
   const loadSessions = async () => {

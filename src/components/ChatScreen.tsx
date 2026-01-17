@@ -8,7 +8,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-} from 'react';
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import GlassCard from './GlassCard';
@@ -33,10 +33,18 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
   const [userName, setUserName] = useState('');
   const [userAvatar, setUserAvatar] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    loadProfile();
-    loadMessages();
+    const initializeChat = async () => {
+      await loadProfile();
+      await loadMessages();
+    };
+    initializeChat();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [friendId]);
 
   const loadProfile = async () => {
@@ -44,13 +52,21 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
     setUserId(profile.id);
     setUserName(profile.displayName);
     setUserAvatar(profile.avatarEmoji);
+    return profile.id;
   };
 
   const loadMessages = async () => {
-    if (!userId) return;
-    const msgs = await getMessages(userId, friendId);
-    setMessages(msgs);
-    await markMessagesAsRead(userId, friendId);
+    if (!userId) {
+      // If userId not set yet, get it from profile
+      const profile = await getUserProfile();
+      const msgs = await getMessages(profile.id, friendId);
+      setMessages(msgs);
+      await markMessagesAsRead(profile.id, friendId);
+    } else {
+      const msgs = await getMessages(userId, friendId);
+      setMessages(msgs);
+      await markMessagesAsRead(userId, friendId);
+    }
   };
 
   const handleSend = async () => {
@@ -69,7 +85,9 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
 
     // Scroll to bottom
     setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
+      if (isMountedRef.current) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
     }, 100);
   };
 
@@ -86,7 +104,9 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
     setMessages(prev => [...prev, message]);
 
     setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
+      if (isMountedRef.current) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
     }, 100);
   };
 

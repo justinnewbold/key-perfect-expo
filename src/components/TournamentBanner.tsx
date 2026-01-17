@@ -16,6 +16,7 @@ export default function TournamentBanner() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isEnding: false });
   const [userRank, setUserRank] = useState<number>(0);
+  const tournamentRef = useRef<Tournament | null>(null);
 
   useEffect(() => {
     loadTournament();
@@ -24,8 +25,13 @@ export default function TournamentBanner() {
   useEffect(() => {
     if (!tournament) return;
 
+    // Store tournament in ref to avoid dependency issues
+    tournamentRef.current = tournament;
+
     const interval = setInterval(() => {
-      const time = getTimeUntilTournamentEnd(tournament);
+      if (!tournamentRef.current) return;
+
+      const time = getTimeUntilTournamentEnd(tournamentRef.current);
       setTimeLeft(time);
 
       // If tournament ended, reload to get new one
@@ -35,14 +41,16 @@ export default function TournamentBanner() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [tournament]);
+  }, [tournament?.id]); // Only re-run when tournament ID changes
 
   const loadTournament = async () => {
     const currentTournament = await getCurrentTournament();
     setTournament(currentTournament);
 
-    // Find user's rank (mock for now, would get from user profile)
-    const mockUserRank = Math.floor(Math.random() * 50) + 1;
+    // Find user's rank from tournament leaderboard
+    // Use consistent mock rank based on user profile instead of random
+    const userEntry = currentTournament.leaderboard.find(e => e.userId === 'current_user');
+    const mockUserRank = userEntry ? userEntry.rank : Math.floor(Math.random() * 50) + 1;
     setUserRank(mockUserRank);
   };
 
