@@ -15,7 +15,15 @@ export async function loadStats(): Promise<UserStats> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
     if (data) {
-      return { ...DEFAULT_STATS, ...JSON.parse(data) };
+      try {
+        const parsed = JSON.parse(data);
+        return { ...DEFAULT_STATS, ...parsed };
+      } catch (parseError) {
+        console.error('Error parsing stats JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.STATS);
+        return DEFAULT_STATS;
+      }
     }
   } catch (error) {
     console.error('Error loading stats:', error);
@@ -36,7 +44,15 @@ export async function loadSettings(): Promise<UserSettings> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (data) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      try {
+        const parsed = JSON.parse(data);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch (parseError) {
+        console.error('Error parsing settings JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.SETTINGS);
+        return DEFAULT_SETTINGS;
+      }
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -65,7 +81,14 @@ export async function loadDailyChallenge(): Promise<DailyChallenge | null> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_CHALLENGE);
     if (data) {
-      return JSON.parse(data);
+      try {
+        return JSON.parse(data);
+      } catch (parseError) {
+        console.error('Error parsing daily challenge JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.DAILY_CHALLENGE);
+        return null;
+      }
     }
   } catch (error) {
     console.error('Error loading daily challenge:', error);

@@ -37,8 +37,13 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
 
   useEffect(() => {
     const initializeChat = async () => {
-      await loadProfile();
-      await loadMessages();
+      const profile = await getUserProfile();
+      setUserId(profile.id);
+      setUserName(profile.displayName);
+      setUserAvatar(profile.avatarEmoji);
+
+      // Use profile ID directly, not from state
+      await loadMessages(profile.id);
     };
     initializeChat();
 
@@ -47,26 +52,13 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
     };
   }, [friendId]);
 
-  const loadProfile = async () => {
-    const profile = await getUserProfile();
-    setUserId(profile.id);
-    setUserName(profile.displayName);
-    setUserAvatar(profile.avatarEmoji);
-    return profile.id;
-  };
+  const loadMessages = async (currentUserId?: string) => {
+    const id = currentUserId || userId;
+    if (!id) return;
 
-  const loadMessages = async () => {
-    if (!userId) {
-      // If userId not set yet, get it from profile
-      const profile = await getUserProfile();
-      const msgs = await getMessages(profile.id, friendId);
-      setMessages(msgs);
-      await markMessagesAsRead(profile.id, friendId);
-    } else {
-      const msgs = await getMessages(userId, friendId);
-      setMessages(msgs);
-      await markMessagesAsRead(userId, friendId);
-    }
+    const msgs = await getMessages(id, friendId);
+    setMessages(msgs);
+    await markMessagesAsRead(id, friendId);
   };
 
   const handleSend = async () => {
