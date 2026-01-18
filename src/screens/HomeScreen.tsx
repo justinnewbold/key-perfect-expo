@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,6 +46,12 @@ export default function HomeScreen() {
   const currentLevelIndex = Math.max(0, Math.min(unlockedCount - 1, LEVELS.length - 1));
   const currentLevel = LEVELS[currentLevelIndex];
 
+  // Fallback if LEVELS array is empty or undefined
+  if (!currentLevel) {
+    console.error('LEVELS array is empty or undefined');
+    return null;
+  }
+
   const handleStartPractice = (weakAreas: WeakArea[]) => {
     if (weakAreas.length > 0) {
       navigation.navigate('WeakAreas');
@@ -54,6 +60,9 @@ export default function HomeScreen() {
       navigation.navigate('GameModes');
     }
   };
+
+  // Memoize the sliced game modes to prevent unnecessary re-renders
+  const quickGameModes = useMemo(() => GAME_MODES.slice(0, 4), []);
 
   return (
     <LinearGradient
@@ -227,12 +236,12 @@ export default function HomeScreen() {
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.modesScroll}
           >
-            {GAME_MODES.slice(0, 4).map((mode) => (
+            {quickGameModes.map((mode) => (
               <TouchableOpacity
                 key={mode.id}
                 style={[styles.modeCard, { backgroundColor: mode.color + '30' }]}
