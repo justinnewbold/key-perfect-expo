@@ -12,6 +12,7 @@ import PracticeCoach from '../components/PracticeCoach';
 import EnhancedAICoach from '../components/EnhancedAICoach';
 import TournamentBanner from '../components/TournamentBanner';
 import StreakDashboard from '../components/StreakDashboard';
+import OfflineIndicator from '../components/OfflineIndicator';
 import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -97,6 +98,31 @@ export default function HomeScreen() {
 
         {/* XP Display */}
         <XPDisplay />
+
+        {/* Offline Indicator */}
+        <OfflineIndicator />
+
+        {/* Quick Access */}
+        <View style={styles.quickAccessRow}>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Analytics')}
+            accessibilityLabel="View Analytics"
+            accessibilityRole="button"
+          >
+            <Ionicons name="analytics" size={24} color={COLORS.info} />
+            <Text style={styles.quickAccessLabel}>Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('EventsCalendar')}
+            accessibilityLabel="View Events"
+            accessibilityRole="button"
+          >
+            <Ionicons name="calendar" size={24} color={COLORS.success} />
+            <Text style={styles.quickAccessLabel}>Live Events</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Quick Stats */}
         <View style={styles.statsRow}>
@@ -423,5 +449,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: SPACING.xs,
     textAlign: 'center',
+  },
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginVertical: SPACING.sm,
+  },
+  quickAccessCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardBackground + '80',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  quickAccessLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
