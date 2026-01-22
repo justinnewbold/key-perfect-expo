@@ -122,6 +122,33 @@ export default function HomeScreen() {
             <Ionicons name="calendar" size={24} color={COLORS.success} />
             <Text style={styles.quickAccessLabel}>Live Events</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('LearningPath')}
+            accessibilityLabel="View Learning Path"
+            accessibilityRole="button"
+          >
+            <Ionicons name="map" size={24} color={COLORS.primary} />
+            <Text style={styles.quickAccessLabel}>Learning Path</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Friends')}
+            accessibilityLabel="View Friends"
+            accessibilityRole="button"
+          >
+            <Ionicons name="people" size={24} color={COLORS.warning} />
+            <Text style={styles.quickAccessLabel}>Friends</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityLabel="View Profile"
+            accessibilityRole="button"
+          >
+            <Ionicons name="person" size={24} color={COLORS.error} />
+            <Text style={styles.quickAccessLabel}>Profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Stats */}

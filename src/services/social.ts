@@ -8,6 +8,12 @@ const STORAGE_KEYS = {
   MESSAGES: 'keyPerfect_messages',
   DUETS: 'keyPerfect_duets',
   GROUP_CHALLENGES: 'keyPerfect_groupChallenges',
+  FRIENDS: 'keyPerfect_friends',
+  FRIEND_REQUESTS: 'keyPerfect_friendRequests',
+  HEAD_TO_HEAD_CHALLENGES: 'keyPerfect_headToHeadChallenges',
+  ACTIVITY_FEED: 'keyPerfect_activityFeed',
+  SOCIAL_CURRENCY: 'keyPerfect_socialCurrency',
+  GIFTS: 'keyPerfect_gifts',
 };
 
 export interface ChatMessage {
@@ -75,6 +81,104 @@ export interface ChallengeGoal {
   target: number;
   current: number;
   unit: string;
+}
+
+// NEW: Friend System Types
+export type FriendStatus = 'pending' | 'accepted' | 'blocked';
+export type OnlineStatus = 'online' | 'away' | 'offline';
+
+export interface Friend {
+  id: string;
+  username: string;
+  displayName: string;
+  avatar?: string;
+  level: number;
+  totalXP: number;
+  status: FriendStatus;
+  onlineStatus: OnlineStatus;
+  lastOnline: number;
+  friendSince: number;
+  mutualFriends: number;
+  gamesPlayed: number;
+  winRate: number;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  username: string;
+  displayName: string;
+  avatar?: string;
+  level: number;
+  message?: string;
+  timestamp: number;
+  status: FriendStatus;
+}
+
+// NEW: Head-to-Head Challenge Types
+export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'active' | 'completed' | 'expired';
+
+export interface HeadToHeadChallenge {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  fromUsername: string;
+  toUsername: string;
+  status: ChallengeStatus;
+  wager?: number;
+  mode: 'speed' | 'accuracy' | 'survival' | 'intervals' | 'chords';
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert';
+  rounds: number;
+  createdAt: number;
+  expiresAt: number;
+  startedAt?: number;
+  completedAt?: number;
+  winner?: string;
+  scores: {
+    [userId: string]: {
+      score: number;
+      accuracy: number;
+      time: number;
+    };
+  };
+}
+
+// NEW: Activity Feed Types
+export type ActivityType = 'friend_added' | 'challenge_sent' | 'challenge_won' | 'achievement_unlocked' | 'level_up' | 'gift_sent';
+
+export interface ActivityFeedItem {
+  id: string;
+  userId: string;
+  username: string;
+  avatar?: string;
+  type: ActivityType;
+  description: string;
+  timestamp: number;
+  metadata?: any;
+}
+
+// NEW: Social Currency & Gifts
+export interface SocialCurrency {
+  userId: string;
+  coins: number;
+  gems: number;
+  giftsReceived: number;
+  giftsSent: number;
+}
+
+export interface Gift {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  fromUsername: string;
+  type: 'coin_pack' | 'gem_pack' | 'xp_boost' | 'power_up' | 'sticker';
+  name: string;
+  description: string;
+  value: number;
+  icon: string;
+  timestamp: number;
+  claimed: boolean;
 }
 
 // ===== CHAT FUNCTIONS =====
@@ -506,6 +610,604 @@ function getGoalUnit(type: ChallengeGoal['type']): string {
     case 'collective_streak': return 'day streak';
     default: return 'points';
   }
+}
+
+// ===== FRIEND MANAGEMENT =====
+
+export async function getFriends(userId: string): Promise<Friend[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.FRIENDS}_${userId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading friends:', error);
+  }
+  return [];
+}
+
+export async function getFriendRequests(userId: string): Promise<FriendRequest[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.FRIEND_REQUESTS}_${userId}`);
+    if (data) {
+      const requests: FriendRequest[] = JSON.parse(data);
+      return requests.filter(r => r.status === 'pending');
+    }
+  } catch (error) {
+    console.error('Error loading friend requests:', error);
+  }
+  return [];
+}
+
+export async function sendFriendRequest(
+  fromUserId: string,
+  toUserId: string,
+  message?: string
+): Promise<boolean> {
+  try {
+    const mockUser = {
+      username: `user_${fromUserId}`,
+      displayName: `Player ${fromUserId}`,
+      level: 15,
+      avatar: '👤',
+    };
+
+    const request: FriendRequest = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      fromUserId,
+      toUserId,
+      username: mockUser.username,
+      displayName: mockUser.displayName,
+      avatar: mockUser.avatar,
+      level: mockUser.level,
+      message,
+      timestamp: Date.now(),
+      status: 'pending',
+    };
+
+    const existingRequests = await getFriendRequests(toUserId);
+    existingRequests.push(request);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.FRIEND_REQUESTS}_${toUserId}`,
+      JSON.stringify(existingRequests)
+    );
+
+    await addActivityFeedItem({
+      userId: fromUserId,
+      username: mockUser.username,
+      type: 'friend_added',
+      description: `sent you a friend request`,
+      timestamp: Date.now(),
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    return false;
+  }
+}
+
+export async function acceptFriendRequest(
+  userId: string,
+  requestId: string
+): Promise<boolean> {
+  try {
+    const requests = await getFriendRequests(userId);
+    const request = requests.find(r => r.id === requestId);
+
+    if (!request) return false;
+
+    const newFriend: Friend = {
+      id: request.fromUserId,
+      username: request.username,
+      displayName: request.displayName,
+      avatar: request.avatar,
+      level: request.level,
+      totalXP: request.level * 1000,
+      status: 'accepted',
+      onlineStatus: 'online',
+      lastOnline: Date.now(),
+      friendSince: Date.now(),
+      mutualFriends: 0,
+      gamesPlayed: 0,
+      winRate: 0,
+    };
+
+    const userFriends = await getFriends(userId);
+    userFriends.push(newFriend);
+    await AsyncStorage.setItem(`${STORAGE_KEYS.FRIENDS}_${userId}`, JSON.stringify(userFriends));
+
+    const friendFriends = await getFriends(request.fromUserId);
+    friendFriends.push({
+      ...newFriend,
+      id: userId,
+      username: `user_${userId}`,
+      displayName: `Player ${userId}`,
+    });
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.FRIENDS}_${request.fromUserId}`,
+      JSON.stringify(friendFriends)
+    );
+
+    const updatedRequests = requests.filter(r => r.id !== requestId);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.FRIEND_REQUESTS}_${userId}`,
+      JSON.stringify(updatedRequests)
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Error accepting friend request:', error);
+    return false;
+  }
+}
+
+export async function declineFriendRequest(
+  userId: string,
+  requestId: string
+): Promise<boolean> {
+  try {
+    const requests = await getFriendRequests(userId);
+    const updatedRequests = requests.filter(r => r.id !== requestId);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.FRIEND_REQUESTS}_${userId}`,
+      JSON.stringify(updatedRequests)
+    );
+    return true;
+  } catch (error) {
+    console.error('Error declining friend request:', error);
+    return false;
+  }
+}
+
+export async function removeFriend(userId: string, friendId: string): Promise<boolean> {
+  try {
+    const friends = await getFriends(userId);
+    const updatedFriends = friends.filter(f => f.id !== friendId);
+    await AsyncStorage.setItem(`${STORAGE_KEYS.FRIENDS}_${userId}`, JSON.stringify(updatedFriends));
+
+    const friendFriends = await getFriends(friendId);
+    const updatedFriendFriends = friendFriends.filter(f => f.id !== userId);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.FRIENDS}_${friendId}`,
+      JSON.stringify(updatedFriendFriends)
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    return false;
+  }
+}
+
+export async function searchUsers(query: string): Promise<Friend[]> {
+  const mockUsers: Friend[] = [
+    {
+      id: 'user1',
+      username: 'piano_master',
+      displayName: 'Piano Master',
+      level: 42,
+      totalXP: 42000,
+      status: 'accepted',
+      onlineStatus: 'online',
+      lastOnline: Date.now(),
+      friendSince: Date.now() - 86400000 * 30,
+      mutualFriends: 5,
+      gamesPlayed: 120,
+      winRate: 67,
+      avatar: '🎹',
+    },
+    {
+      id: 'user2',
+      username: 'chord_wizard',
+      displayName: 'Chord Wizard',
+      level: 35,
+      totalXP: 35000,
+      status: 'accepted',
+      onlineStatus: 'away',
+      lastOnline: Date.now() - 3600000,
+      friendSince: Date.now() - 86400000 * 15,
+      mutualFriends: 2,
+      gamesPlayed: 85,
+      winRate: 72,
+      avatar: '🎸',
+    },
+  ];
+
+  return mockUsers.filter(user =>
+    user.username.toLowerCase().includes(query.toLowerCase()) ||
+    user.displayName.toLowerCase().includes(query.toLowerCase())
+  );
+}
+
+// ===== HEAD-TO-HEAD CHALLENGES =====
+
+export async function getHeadToHeadChallenges(userId: string): Promise<HeadToHeadChallenge[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${userId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading head-to-head challenges:', error);
+  }
+  return [];
+}
+
+export async function createHeadToHeadChallenge(
+  fromUserId: string,
+  toUserId: string,
+  mode: HeadToHeadChallenge['mode'],
+  difficulty: HeadToHeadChallenge['difficulty'],
+  rounds: number,
+  wager?: number
+): Promise<HeadToHeadChallenge | null> {
+  try {
+    const friends = await getFriends(fromUserId);
+    const friend = friends.find(f => f.id === toUserId);
+
+    if (!friend) {
+      console.error('Not friends with this user');
+      return null;
+    }
+
+    const challenge: HeadToHeadChallenge = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      fromUserId,
+      toUserId,
+      fromUsername: `user_${fromUserId}`,
+      toUsername: friend.username,
+      status: 'pending',
+      wager,
+      mode,
+      difficulty,
+      rounds,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 86400000,
+      scores: {},
+    };
+
+    const fromChallenges = await getHeadToHeadChallenges(fromUserId);
+    fromChallenges.push(challenge);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${fromUserId}`,
+      JSON.stringify(fromChallenges)
+    );
+
+    const toChallenges = await getHeadToHeadChallenges(toUserId);
+    toChallenges.push(challenge);
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${toUserId}`,
+      JSON.stringify(toChallenges)
+    );
+
+    return challenge;
+  } catch (error) {
+    console.error('Error creating head-to-head challenge:', error);
+    return null;
+  }
+}
+
+export async function acceptHeadToHeadChallenge(userId: string, challengeId: string): Promise<boolean> {
+  try {
+    const challenges = await getHeadToHeadChallenges(userId);
+    const challenge = challenges.find(c => c.id === challengeId);
+
+    if (!challenge) return false;
+
+    challenge.status = 'accepted';
+    challenge.startedAt = Date.now();
+
+    await AsyncStorage.setItem(`${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${userId}`, JSON.stringify(challenges));
+
+    const opponentId = challenge.fromUserId === userId ? challenge.toUserId : challenge.fromUserId;
+    const opponentChallenges = await getHeadToHeadChallenges(opponentId);
+    const opponentChallenge = opponentChallenges.find(c => c.id === challengeId);
+    if (opponentChallenge) {
+      opponentChallenge.status = 'accepted';
+      opponentChallenge.startedAt = Date.now();
+      await AsyncStorage.setItem(
+        `${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${opponentId}`,
+        JSON.stringify(opponentChallenges)
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error accepting challenge:', error);
+    return false;
+  }
+}
+
+export async function submitHeadToHeadScore(
+  userId: string,
+  challengeId: string,
+  score: number,
+  accuracy: number,
+  time: number
+): Promise<boolean> {
+  try {
+    const challenges = await getHeadToHeadChallenges(userId);
+    const challenge = challenges.find(c => c.id === challengeId);
+
+    if (!challenge) return false;
+
+    challenge.scores[userId] = { score, accuracy, time };
+
+    const opponentId = challenge.fromUserId === userId ? challenge.toUserId : challenge.fromUserId;
+    if (challenge.scores[opponentId]) {
+      if (challenge.scores[userId].score > challenge.scores[opponentId].score) {
+        challenge.winner = userId;
+      } else if (challenge.scores[userId].score < challenge.scores[opponentId].score) {
+        challenge.winner = opponentId;
+      } else {
+        if (challenge.scores[userId].accuracy > challenge.scores[opponentId].accuracy) {
+          challenge.winner = userId;
+        } else {
+          challenge.winner = opponentId;
+        }
+      }
+
+      challenge.status = 'completed';
+      challenge.completedAt = Date.now();
+
+      if (challenge.winner) {
+        await updateFriendStats(userId, opponentId, challenge.winner === userId);
+      }
+
+      if (challenge.winner === userId) {
+        await addActivityFeedItem({
+          userId,
+          username: challenge.fromUsername === `user_${userId}` ? challenge.fromUsername : challenge.toUsername,
+          type: 'challenge_won',
+          description: `won a ${challenge.mode} challenge!`,
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    await AsyncStorage.setItem(`${STORAGE_KEYS.HEAD_TO_HEAD_CHALLENGES}_${userId}`, JSON.stringify(challenges));
+
+    return true;
+  } catch (error) {
+    console.error('Error submitting challenge score:', error);
+    return false;
+  }
+}
+
+async function updateFriendStats(
+  userId: string,
+  friendId: string,
+  didWin: boolean
+): Promise<void> {
+  try {
+    const friends = await getFriends(userId);
+    const friend = friends.find(f => f.id === friendId);
+
+    if (friend) {
+      friend.gamesPlayed++;
+      if (didWin) {
+        friend.winRate = ((friend.winRate * (friend.gamesPlayed - 1) + 100) / friend.gamesPlayed);
+      } else {
+        friend.winRate = ((friend.winRate * (friend.gamesPlayed - 1)) / friend.gamesPlayed);
+      }
+
+      await AsyncStorage.setItem(`${STORAGE_KEYS.FRIENDS}_${userId}`, JSON.stringify(friends));
+    }
+  } catch (error) {
+    console.error('Error updating friend stats:', error);
+  }
+}
+
+// ===== ACTIVITY FEED =====
+
+export async function getActivityFeed(userId: string): Promise<ActivityFeedItem[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.ACTIVITY_FEED}_${userId}`);
+    if (data) {
+      const feed: ActivityFeedItem[] = JSON.parse(data);
+      return feed.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
+    }
+  } catch (error) {
+    console.error('Error loading activity feed:', error);
+  }
+  return [];
+}
+
+export async function addActivityFeedItem(item: Omit<ActivityFeedItem, 'id'>): Promise<void> {
+  try {
+    const feed = await getActivityFeed(item.userId);
+
+    const newItem: ActivityFeedItem = {
+      ...item,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    };
+
+    feed.unshift(newItem);
+
+    const trimmedFeed = feed.slice(0, 100);
+
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.ACTIVITY_FEED}_${item.userId}`,
+      JSON.stringify(trimmedFeed)
+    );
+  } catch (error) {
+    console.error('Error adding activity feed item:', error);
+  }
+}
+
+// ===== SOCIAL CURRENCY & GIFTS =====
+
+export async function getSocialCurrency(userId: string): Promise<SocialCurrency> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.SOCIAL_CURRENCY}_${userId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading social currency:', error);
+  }
+
+  return {
+    userId,
+    coins: 1000,
+    gems: 50,
+    giftsReceived: 0,
+    giftsSent: 0,
+  };
+}
+
+export async function updateSocialCurrency(
+  userId: string,
+  coins?: number,
+  gems?: number
+): Promise<void> {
+  try {
+    const currency = await getSocialCurrency(userId);
+
+    if (coins !== undefined) currency.coins += coins;
+    if (gems !== undefined) currency.gems += gems;
+
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.SOCIAL_CURRENCY}_${userId}`,
+      JSON.stringify(currency)
+    );
+  } catch (error) {
+    console.error('Error updating social currency:', error);
+  }
+}
+
+export async function sendGift(
+  fromUserId: string,
+  toUserId: string,
+  giftType: Gift['type']
+): Promise<boolean> {
+  try {
+    const currency = await getSocialCurrency(fromUserId);
+
+    const gifts: Record<Gift['type'], { name: string; cost: number; value: number; icon: string; description: string }> = {
+      coin_pack: { name: 'Coin Pack', cost: 0, value: 100, icon: '💰', description: '100 coins' },
+      gem_pack: { name: 'Gem Pack', cost: 50, value: 10, icon: '💎', description: '10 gems' },
+      xp_boost: { name: 'XP Boost', cost: 100, value: 500, icon: '⚡', description: '+500 XP' },
+      power_up: { name: 'Power Up', cost: 150, value: 1, icon: '🚀', description: 'Practice boost' },
+      sticker: { name: 'Sticker', cost: 25, value: 1, icon: '⭐', description: 'Special sticker' },
+    };
+
+    const giftData = gifts[giftType];
+    if (!giftData) return false;
+
+    if (currency.coins < giftData.cost) {
+      console.error('Insufficient coins');
+      return false;
+    }
+
+    const gift: Gift = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      fromUserId,
+      toUserId,
+      fromUsername: `user_${fromUserId}`,
+      type: giftType,
+      name: giftData.name,
+      description: giftData.description,
+      value: giftData.value,
+      icon: giftData.icon,
+      timestamp: Date.now(),
+      claimed: false,
+    };
+
+    await updateSocialCurrency(fromUserId, -giftData.cost);
+
+    currency.giftsSent++;
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.SOCIAL_CURRENCY}_${fromUserId}`,
+      JSON.stringify(currency)
+    );
+
+    const recipientGifts = await getGifts(toUserId);
+    recipientGifts.push(gift);
+    await AsyncStorage.setItem(`${STORAGE_KEYS.GIFTS}_${toUserId}`, JSON.stringify(recipientGifts));
+
+    await addActivityFeedItem({
+      userId: toUserId,
+      username: `user_${fromUserId}`,
+      type: 'gift_sent',
+      description: `sent you a ${giftData.name}`,
+      timestamp: Date.now(),
+      metadata: { giftType },
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error sending gift:', error);
+    return false;
+  }
+}
+
+export async function getGifts(userId: string): Promise<Gift[]> {
+  try {
+    const data = await AsyncStorage.getItem(`${STORAGE_KEYS.GIFTS}_${userId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading gifts:', error);
+  }
+  return [];
+}
+
+export async function claimGift(userId: string, giftId: string): Promise<boolean> {
+  try {
+    const gifts = await getGifts(userId);
+    const gift = gifts.find(g => g.id === giftId);
+
+    if (!gift || gift.claimed) return false;
+
+    gift.claimed = true;
+
+    switch (gift.type) {
+      case 'coin_pack':
+        await updateSocialCurrency(userId, gift.value);
+        break;
+      case 'gem_pack':
+        await updateSocialCurrency(userId, 0, gift.value);
+        break;
+      case 'xp_boost':
+      case 'power_up':
+      case 'sticker':
+        break;
+    }
+
+    const currency = await getSocialCurrency(userId);
+    currency.giftsReceived++;
+    await AsyncStorage.setItem(
+      `${STORAGE_KEYS.SOCIAL_CURRENCY}_${userId}`,
+      JSON.stringify(currency)
+    );
+
+    await AsyncStorage.setItem(`${STORAGE_KEYS.GIFTS}_${userId}`, JSON.stringify(gifts));
+
+    return true;
+  } catch (error) {
+    console.error('Error claiming gift:', error);
+    return false;
+  }
+}
+
+// ===== UTILITY FUNCTIONS =====
+
+export async function getOnlineFriendsCount(userId: string): Promise<number> {
+  const friends = await getFriends(userId);
+  return friends.filter(f => f.onlineStatus === 'online').length;
+}
+
+export async function getPendingFriendRequestsCount(userId: string): Promise<number> {
+  const requests = await getFriendRequests(userId);
+  return requests.length;
+}
+
+export async function getPendingChallengesCount(userId: string): Promise<number> {
+  const challenges = await getHeadToHeadChallenges(userId);
+  return challenges.filter(c => c.status === 'pending' && c.toUserId === userId).length;
 }
 
 // ===== SOCIAL SHARING =====
