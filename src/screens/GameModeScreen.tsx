@@ -39,6 +39,14 @@ import { submitScore, syncProfileWithStats, submitTournamentScore } from '../ser
 
 const { width } = Dimensions.get('window');
 
+// Game timing constants
+const SPEED_MODE_DURATION = 30; // seconds
+const SPEED_MODE_TIMER_INTERVAL = 1000; // ms
+const SPEED_MODE_ACCURACY_THRESHOLD = 20; // seconds threshold for difficulty adjustment
+const ANSWER_FEEDBACK_DELAY = 500; // ms
+const INTERVAL_NOTE_DELAY = 100; // ms
+const CHORD_PLAYBACK_DELAY = 300; // ms
+
 type ModeId = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | 'progressions' | 'inversions' | 'reverse';
 
 interface SpeedGameState {
@@ -226,7 +234,7 @@ export default function GameModeScreen() {
           }
           return { ...prev, timeLeft: prev.timeLeft - 1 };
         });
-      }, 1000);
+      }, SPEED_MODE_TIMER_INTERVAL);
     }
 
     return () => {
@@ -279,7 +287,7 @@ export default function GameModeScreen() {
       score: 0,
       currentItem,
       options,
-      timeLeft: 30,
+      timeLeft: SPEED_MODE_DURATION,
       combo: 0,
       difficultyLevel,
     });
@@ -317,7 +325,7 @@ export default function GameModeScreen() {
       const currentItem = items[Math.floor(Math.random() * items.length)];
 
       // Adaptive difficulty: adjust number of options based on recent performance
-      const recentAccuracy = speedState.score / Math.max(1, speedState.score + (speedState.timeLeft < 20 ? 30 - speedState.timeLeft - speedState.score : 1));
+      const recentAccuracy = speedState.score / Math.max(1, speedState.score + (speedState.timeLeft < SPEED_MODE_ACCURACY_THRESHOLD ? SPEED_MODE_DURATION - speedState.timeLeft - speedState.score : 1));
       let newDifficulty = speedState.difficultyLevel;
       if (recentAccuracy > 0.8 && newDifficulty < 6) {
         newDifficulty++; // Make it harder
@@ -522,7 +530,7 @@ export default function GameModeScreen() {
         options,
       });
       setIntervalAnswerState('default');
-    }, 500);
+    }, ANSWER_FEEDBACK_DELAY);
   };
 
   // Start Daily Challenge
@@ -685,7 +693,7 @@ export default function GameModeScreen() {
           const noteIndex = (rootIndex + interval) % 12;
           const octave = 4 + Math.floor((rootIndex + interval) / 12);
           await playNote(ALL_NOTES[noteIndex], octave, 0.25);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, INTERVAL_NOTE_DELAY));
         }
       } catch (error) {
         console.error('Error playing scale:', error);
@@ -730,7 +738,7 @@ export default function GameModeScreen() {
           const chord = numeralToChord[numeral];
           if (chord) {
             await playChord(chord.root, chord.type);
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, CHORD_PLAYBACK_DELAY));
           }
         }
       } catch (error) {
@@ -1040,8 +1048,8 @@ export default function GameModeScreen() {
           {/* Progress Visualization */}
           <GameProgressBar
             score={speedState.score}
-            attempts={speedState.score + (30 - speedState.timeLeft - speedState.score)}
-            previousBest={stats.speedModeHighScore / 30 * 100}
+            attempts={speedState.score + (SPEED_MODE_DURATION - speedState.timeLeft - speedState.score)}
+            previousBest={stats.speedModeHighScore / SPEED_MODE_DURATION * 100}
             style={{ marginBottom: SPACING.lg }}
           />
 
