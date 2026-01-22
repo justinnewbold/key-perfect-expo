@@ -343,3 +343,185 @@ export async function clearOfflineData(): Promise<void> {
     console.error('Error clearing offline data:', error);
   }
 }
+
+/**
+ * Batch add multiple items to queue (more efficient)
+ */
+export async function batchAddToOfflineQueue(items: { action: SyncAction; data: unknown }[]): Promise<void> {
+  try {
+    const queue = await getOfflineQueue();
+    const now = Date.now();
+
+    const newItems: OfflineSyncItem[] = items.map((item, index) => {
+      const priority = ACTION_PRIORITY_MAP[item.action];
+      const config = PRIORITY_CONFIG[priority];
+
+      return {
+        id: `${now + index}-${Math.random().toString(36).slice(2, 11)}`,
+        action: item.action,
+        priority,
+        data: item.data,
+        timestamp: now + index, // Slightly offset timestamps
+        retryCount: 0,
+        maxRetries: config.maxRetries,
+      };
+    });
+
+    queue.push(...newItems);
+
+    // Sort by priority and timestamp
+    queue.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }
+      return a.timestamp - b.timestamp;
+    });
+
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queue));
+  } catch (error) {
+    console.error('Error batch adding to offline queue:', error);
+  }
+}
+
+/**
+ * Get queue statistics
+ */
+export async function getQueueStatistics(): Promise<{
+  total: number;
+  byPriority: { high: number; medium: number; low: number };
+  oldestItem: number | null;
+  avgRetries: number;
+}> {
+  try {
+    const queue = await getOfflineQueue();
+
+    const byPriority = {
+      high: queue.filter(i => i.priority === 'high').length,
+      medium: queue.filter(i => i.priority === 'medium').length,
+      low: queue.filter(i => i.priority === 'low').length,
+    };
+
+    const oldestItem = queue.length > 0 ? Math.min(...queue.map(i => i.timestamp)) : null;
+
+    const avgRetries =
+      queue.length > 0 ? queue.reduce((sum, i) => sum + i.retryCount, 0) / queue.length : 0;
+
+    return {
+      total: queue.length,
+      byPriority,
+      oldestItem,
+      avgRetries,
+    };
+  } catch (error) {
+    console.error('Error getting queue statistics:', error);
+    return {
+      total: 0,
+      byPriority: { high: 0, medium: 0, low: 0 },
+      oldestItem: null,
+      avgRetries: 0,
+    };
+  }
+}
+
+/**
+ * Force sync specific action types
+ */
+export async function forceSyncByAction(action: SyncAction): Promise<SyncResult> {
+  const result: SyncResult = {
+    success: true,
+    processedCount: 0,
+    failedCount: 0,
+    conflictsResolved: 0,
+  };
+
+  try {
+    const queue = await getOfflineQueue();
+    const itemsToSync = queue.filter(i => i.action === action);
+    const remainingItems = queue.filter(i => i.action !== action);
+
+    for (const item of itemsToSync) {
+      try {
+        const processed = await processSyncItem(item);
+        if (processed) {
+          result.processedCount++;
+        } else {
+          result.failedCount++;
+          remainingItems.push(item);
+        }
+      } catch (error) {
+        console.error(`Error processing item ${item.id}:`, error);
+        result.failedCount++;
+        remainingItems.push(item);
+      }
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(remainingItems));
+  } catch (error) {
+    console.error('Error force syncing by action:', error);
+    result.success = false;
+  }
+
+  return result;
+}
+
+/**
+ * Estimate sync time remaining
+ */
+export async function estimateSyncTime(): Promise<number> {
+  try {
+    const queue = await getOfflineQueue();
+    if (queue.length === 0) return 0;
+
+    // Estimate 100ms per item (mock, adjust based on real API performance)
+    const AVG_ITEM_TIME = 100; // ms
+    return queue.length * AVG_ITEM_TIME;
+  } catch (error) {
+    console.error('Error estimating sync time:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get failed items (items that exceeded max retries)
+ */
+export async function getFailedItems(): Promise<OfflineSyncItem[]> {
+  try {
+    const queue = await getOfflineQueue();
+    return queue.filter(i => i.retryCount >= i.maxRetries);
+  } catch (error) {
+    console.error('Error getting failed items:', error);
+    return [];
+  }
+}
+
+/**
+ * Retry failed items (reset retry count)
+ */
+export async function retryFailedItems(): Promise<void> {
+  try {
+    const queue = await getOfflineQueue();
+    queue.forEach(item => {
+      if (item.retryCount >= item.maxRetries) {
+        item.retryCount = 0;
+        item.lastAttempt = undefined;
+      }
+    });
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(queue));
+  } catch (error) {
+    console.error('Error retrying failed items:', error);
+  }
+}
+
+/**
+ * Remove specific item from queue
+ */
+export async function removeFromQueue(itemId: string): Promise<void> {
+  try {
+    const queue = await getOfflineQueue();
+    const filtered = queue.filter(i => i.id !== itemId);
+    await AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Error removing from queue:', error);
+  }
+}

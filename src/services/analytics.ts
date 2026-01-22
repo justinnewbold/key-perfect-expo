@@ -520,3 +520,176 @@ export async function deleteGoal(goalId: string): Promise<void> {
     console.error('Error deleting goal:', error);
   }
 }
+
+/**
+ * Get learning velocity (XP per hour of practice)
+ */
+export async function getLearningVelocity(): Promise<number> {
+  const history = await getPracticeHistory();
+  if (history.length === 0) return 0;
+
+  const totalXP = history.reduce((sum, s) => {
+    // Estimate XP from score (rough calculation)
+    return sum + s.score * 10;
+  }, 0);
+
+  const totalHours = history.reduce((sum, s) => sum + s.duration, 0) / (1000 * 60 * 60);
+
+  return totalHours > 0 ? totalXP / totalHours : 0;
+}
+
+/**
+ * Get practice streak calendar (days practiced in last 30 days)
+ */
+export async function getPracticeCalendar(): Promise<{ date: string; practiced: boolean; sessions: number }[]> {
+  const history = await getPracticeHistory();
+  const calendar: { date: string; practiced: boolean; sessions: number }[] = [];
+
+  const now = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+
+    const sessionsOnDay = history.filter(s => {
+      const sessionDate = new Date(s.timestamp).toISOString().split('T')[0];
+      return sessionDate === dateStr;
+    });
+
+    calendar.push({
+      date: dateStr,
+      practiced: sessionsOnDay.length > 0,
+      sessions: sessionsOnDay.length,
+    });
+  }
+
+  return calendar;
+}
+
+/**
+ * Get improvement areas (skills that need work)
+ */
+export async function getImprovementAreas(): Promise<{
+  skill: string;
+  currentAccuracy: number;
+  targetAccuracy: number;
+  gap: number;
+}[]> {
+  const breakdown = await calculateSkillBreakdown();
+  const TARGET_ACCURACY = 80;
+
+  return breakdown
+    .filter(skill => skill.accuracy < TARGET_ACCURACY)
+    .map(skill => ({
+      skill: skill.category,
+      currentAccuracy: skill.accuracy,
+      targetAccuracy: TARGET_ACCURACY,
+      gap: TARGET_ACCURACY - skill.accuracy,
+    }))
+    .sort((a, b) => b.gap - a.gap)
+    .slice(0, 5);
+}
+
+/**
+ * Get mastered skills (skills above 90% accuracy)
+ */
+export async function getMasteredSkills(): Promise<string[]> {
+  const breakdown = await calculateSkillBreakdown();
+  return breakdown.filter(skill => skill.accuracy >= 90).map(skill => skill.category);
+}
+
+/**
+ * Get practice efficiency (correct answers per minute)
+ */
+export async function getPracticeEfficiency(): Promise<number> {
+  const history = await getPracticeHistory();
+  if (history.length === 0) return 0;
+
+  const totalCorrect = history.reduce((sum, s) => sum + s.correctAnswers, 0);
+  const totalMinutes = history.reduce((sum, s) => sum + s.duration, 0) / (1000 * 60);
+
+  return totalMinutes > 0 ? totalCorrect / totalMinutes : 0;
+}
+
+/**
+ * Get comparative statistics (vs community)
+ */
+export async function getComparativeStats(stats: UserStats): Promise<{
+  percentile: number;
+  ranking: string;
+  comparison: string;
+}> {
+  // Mock comparison (in real app, fetch from backend)
+  const accuracy =
+    stats.totalAttempts > 0 ? (stats.correctAnswers / stats.totalAttempts) * 100 : 0;
+
+  let percentile = 50;
+  let ranking = 'Average';
+  let comparison = 'You\'re doing as well as most users';
+
+  if (accuracy >= 90) {
+    percentile = 95;
+    ranking = 'Elite';
+    comparison = 'You\'re in the top 5% of all players!';
+  } else if (accuracy >= 80) {
+    percentile = 80;
+    ranking = 'Advanced';
+    comparison = 'You\'re better than 80% of players!';
+  } else if (accuracy >= 70) {
+    percentile = 60;
+    ranking = 'Intermediate';
+    comparison = 'You\'re above average!';
+  } else if (accuracy < 50) {
+    percentile = 25;
+    ranking = 'Beginner';
+    comparison = 'Keep practicing to improve!';
+  }
+
+  return { percentile, ranking, comparison };
+}
+
+/**
+ * Generate weekly report
+ */
+export async function generateWeeklyReport(stats: UserStats): Promise<{
+  sessionsThisWeek: number;
+  xpEarned: number;
+  accuracyChange: number;
+  topSkills: string[];
+  needsWork: string[];
+  nextGoals: string[];
+}> {
+  const history = await getPracticeHistory();
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const thisWeek = history.filter(s => s.timestamp >= weekAgo);
+
+  const xpEarned = thisWeek.reduce((sum, s) => sum + s.score * 10, 0);
+  const avgAccuracy =
+    thisWeek.length > 0
+      ? thisWeek.reduce((sum, s) => sum + s.accuracy, 0) / thisWeek.length
+      : 0;
+
+  const breakdown = await calculateSkillBreakdown();
+  const topSkills = breakdown
+    .filter(s => s.accuracy >= 85)
+    .slice(0, 3)
+    .map(s => s.category);
+
+  const needsWork = breakdown
+    .filter(s => s.accuracy < 70)
+    .slice(0, 3)
+    .map(s => s.category);
+
+  return {
+    sessionsThisWeek: thisWeek.length,
+    xpEarned,
+    accuracyChange: 0, // Calculate from previous week
+    topSkills,
+    needsWork,
+    nextGoals: [
+      'Practice 5 times this week',
+      'Reach 85% accuracy',
+      'Complete a tournament',
+    ],
+  };
+}

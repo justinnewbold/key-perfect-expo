@@ -65,6 +65,37 @@ export interface EventSchedule {
 
 // Event schedule configuration
 const EVENT_SCHEDULES: EventSchedule[] = [
+  // DAILY EVENTS (Different times for variety)
+  {
+    type: 'daily_rush',
+    title: 'Morning Rush',
+    description: 'Start your day with a 30-minute speed challenge!',
+    hour: 7, // 7 AM
+    minute: 0,
+    duration: 0.5,
+    mode: 'speed',
+    rewards: [
+      { type: 'xp', amount: 300, description: '1.5x XP multiplier' },
+      { type: 'badge', amount: 1, description: 'Early Bird badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+  {
+    type: 'daily_rush',
+    title: 'Lunch Break Challenge',
+    description: 'Quick 30-minute practice during lunch!',
+    hour: 12, // 12 PM
+    minute: 0,
+    duration: 0.5,
+    mode: 'intervals',
+    rewards: [
+      { type: 'xp', amount: 300, description: '1.5x XP multiplier' },
+      { type: 'badge', amount: 1, description: 'Lunch Warrior badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
   {
     type: 'daily_rush',
     title: 'Daily Happy Hour',
@@ -81,26 +112,61 @@ const EVENT_SCHEDULES: EventSchedule[] = [
     isPremium: false,
   },
   {
+    type: 'daily_rush',
+    title: 'Night Owl Session',
+    description: 'Late night practice for XP boost!',
+    hour: 22, // 10 PM
+    minute: 0,
+    duration: 1,
+    mode: 'survival',
+    rewards: [
+      { type: 'xp', amount: 400, description: '1.75x XP multiplier' },
+      { type: 'badge', amount: 1, description: 'Night Owl badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+
+  // WEEKEND EVENTS
+  {
     type: 'weekend_championship',
-    title: 'Weekend Championship',
-    description: '48-hour tournament with premium rewards!',
+    title: 'Saturday Showdown',
+    description: '24-hour weekend tournament!',
     dayOfWeek: 6, // Saturday
     hour: 10,
     minute: 0,
-    duration: 48,
-    mode: 'survival',
+    duration: 24,
+    mode: 'speed',
     rewards: [
-      { type: 'xp', amount: 2000, description: 'Massive XP boost' },
-      { type: 'pack', amount: 1, description: 'Premium Instrument Pack' },
-      { type: 'badge', amount: 1, description: 'Weekend Champion badge' },
+      { type: 'xp', amount: 1500, description: 'Huge XP boost' },
+      { type: 'badge', amount: 1, description: 'Saturday Champion badge' },
     ],
     entryFee: 0,
     isPremium: false,
   },
   {
+    type: 'weekend_championship',
+    title: 'Sunday Marathon',
+    description: '48-hour endurance challenge!',
+    dayOfWeek: 0, // Sunday
+    hour: 0,
+    minute: 0,
+    duration: 48,
+    mode: 'survival',
+    rewards: [
+      { type: 'xp', amount: 2500, description: 'Massive XP boost' },
+      { type: 'pack', amount: 1, description: 'Premium Instrument Pack' },
+      { type: 'badge', amount: 1, description: 'Marathon Champion badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+
+  // WEEKLY THEME EVENTS (Rotate themes)
+  {
     type: 'theme_week',
     title: 'Jazz Week Challenge',
-    description: 'Master jazz progressions and scales!',
+    description: 'Master jazz progressions and improvisations!',
     dayOfWeek: 1, // Monday
     hour: 0,
     minute: 0,
@@ -116,19 +182,109 @@ const EVENT_SCHEDULES: EventSchedule[] = [
     isPremium: false,
   },
   {
+    type: 'theme_week',
+    title: 'Classical Week',
+    description: 'Perfect your classical music theory!',
+    dayOfWeek: 2, // Tuesday (different week)
+    hour: 0,
+    minute: 0,
+    duration: 168,
+    mode: 'scales',
+    theme: 'classical',
+    rewards: [
+      { type: 'xp', amount: 3000, description: 'Weekly XP bonus' },
+      { type: 'badge', amount: 1, description: 'Classical Virtuoso badge' },
+      { type: 'pack', amount: 1, description: 'Classical Masters Pack' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+  {
+    type: 'theme_week',
+    title: 'Rock & Roll Week',
+    description: 'Learn power chords and rock progressions!',
+    dayOfWeek: 3, // Wednesday
+    hour: 0,
+    minute: 0,
+    duration: 168,
+    mode: 'chords',
+    theme: 'rock',
+    rewards: [
+      { type: 'xp', amount: 3000, description: 'Weekly XP bonus' },
+      { type: 'badge', amount: 1, description: 'Rock Legend badge' },
+      { type: 'pack', amount: 1, description: 'Rock Icons Pack' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+
+  // SPECIAL EVENTS
+  {
+    type: 'weekend_championship',
+    title: 'Friday Night Frenzy',
+    description: 'Kickoff the weekend with intense competition!',
+    dayOfWeek: 5, // Friday
+    hour: 19,
+    minute: 0,
+    duration: 3,
+    mode: 'intervals',
+    rewards: [
+      { type: 'xp', amount: 800, description: 'Friday XP Bonus' },
+      { type: 'badge', amount: 1, description: 'Friday Frenzy badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+  {
+    type: 'weekend_championship',
+    title: 'Midweek Grind',
+    description: 'Wednesday warrior challenge!',
+    dayOfWeek: 3, // Wednesday
+    hour: 18,
+    minute: 0,
+    duration: 2,
+    mode: 'speed',
+    rewards: [
+      { type: 'xp', amount: 600, description: 'Midweek XP Bonus' },
+      { type: 'badge', amount: 1, description: 'Midweek Warrior badge' },
+    ],
+    entryFee: 0,
+    isPremium: false,
+  },
+
+  // PREMIUM TOURNAMENTS
+  {
     type: 'premium_tournament',
-    title: 'Pro Circuit',
-    description: '$50 prize pool! Top 5 split the winnings.',
+    title: 'Pro Circuit Monthly',
+    description: '$100 prize pool! Top 10 split the winnings.',
     dayOfWeek: 0, // First day of month
     hour: 0,
     minute: 0,
     duration: 168, // 7 days
     mode: 'intervals',
     rewards: [
-      { type: 'cash', amount: 50, description: 'Prize pool split among top 5' },
+      { type: 'cash', amount: 100, description: 'Prize pool split among top 10' },
       { type: 'badge', amount: 1, description: 'Pro Circuit Champion' },
+      { type: 'pack', amount: 1, description: 'Exclusive Pro Pack' },
     ],
-    entryFee: 2.99,
+    entryFee: 4.99,
+    isPremium: true,
+  },
+  {
+    type: 'premium_tournament',
+    title: 'Elite Masters Cup',
+    description: '$250 grand prize! Winner takes all.',
+    dayOfWeek: 6, // First Saturday of quarter
+    hour: 0,
+    minute: 0,
+    duration: 168 * 2, // 14 days
+    mode: 'survival',
+    rewards: [
+      { type: 'cash', amount: 250, description: 'Winner takes all!' },
+      { type: 'badge', amount: 1, description: 'Elite Masters Champion' },
+      { type: 'pack', amount: 3, description: '3x Exclusive Elite Packs' },
+    ],
+    entryFee: 9.99,
     isPremium: true,
   },
 ];
@@ -470,4 +626,47 @@ export async function claimEventRewards(eventId: string, userId: string): Promis
     console.error('Error claiming rewards:', error);
     return false;
   }
+}
+
+/**
+ * Get upcoming events for notification scheduling
+ */
+export async function getUpcomingEventsForNotifications(withinHours: number = 24): Promise<Event[]> {
+  const events = await getAllEvents();
+  const now = Date.now();
+  const cutoff = now + withinHours * 60 * 60 * 1000;
+
+  return events.filter(e => e.status === 'upcoming' && e.startTime <= cutoff);
+}
+
+/**
+ * Check if user should be reminded about an event
+ */
+export function shouldRemindUser(event: Event, reminderMinutes: number = 15): boolean {
+  const now = Date.now();
+  const reminderTime = event.startTime - reminderMinutes * 60 * 1000;
+  const reminderWindow = 5 * 60 * 1000; // 5-minute window
+
+  return now >= reminderTime && now < reminderTime + reminderWindow;
+}
+
+/**
+ * Get event statistics
+ */
+export async function getEventStatistics(): Promise<{
+  totalEvents: number;
+  activeEvents: number;
+  totalParticipants: number;
+  avgParticipantsPerEvent: number;
+}> {
+  const events = await getAllEvents();
+  const activeEvents = events.filter(e => e.status === 'active');
+  const totalParticipants = events.reduce((sum, e) => sum + e.participantCount, 0);
+
+  return {
+    totalEvents: events.length,
+    activeEvents: activeEvents.length,
+    totalParticipants,
+    avgParticipantsPerEvent: events.length > 0 ? totalParticipants / events.length : 0,
+  };
 }
