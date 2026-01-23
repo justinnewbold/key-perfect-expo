@@ -73,30 +73,49 @@ export function useNetworkStatus() {
       timestamp: Date.now(),
     };
 
-    const updatedQueue = [...syncQueue, newItem];
-    setSyncQueue(updatedQueue);
-    setStatus(prev => ({ ...prev, pendingSyncCount: updatedQueue.length }));
+    // Use functional setState to avoid stale closure
+    setSyncQueue(prevQueue => {
+      const updatedQueue = [...prevQueue, newItem];
+      setStatus(prev => ({ ...prev, pendingSyncCount: updatedQueue.length }));
 
-    try {
-      await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(updatedQueue));
-    } catch (error) {
-      console.error('Error saving sync queue:', error);
-    }
-  }, [syncQueue]);
+      // Save to storage asynchronously
+      AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(updatedQueue))
+        .catch(error => console.error('Error saving sync queue:', error));
+
+      return updatedQueue;
+    });
+  }, []); // No dependencies needed with functional setState
 
   // Process sync queue when online
   const processSyncQueue = useCallback(async () => {
-    if (!status.isConnected || syncQueue.length === 0 || status.isSyncing) {
+    // Use functional setState to get latest values without dependencies
+    let shouldProcess = false;
+    let currentQueue: SyncQueueItem[] = [];
+
+    setStatus(prev => {
+      shouldProcess = prev.isConnected && !prev.isSyncing;
+      return shouldProcess ? { ...prev, isSyncing: true } : prev;
+    });
+
+    if (!shouldProcess) {
       return;
     }
 
-    setStatus(prev => ({ ...prev, isSyncing: true }));
+    setSyncQueue(prevQueue => {
+      currentQueue = prevQueue;
+      return prevQueue;
+    });
+
+    if (currentQueue.length === 0) {
+      setStatus(prev => ({ ...prev, isSyncing: false }));
+      return;
+    }
 
     try {
       // Process each item in the queue
       const processedIds: string[] = [];
 
-      for (const item of syncQueue) {
+      for (const item of currentQueue) {
         try {
           // In a real app, this would sync with a backend
           // For now, we just mark items as processed
@@ -109,20 +128,26 @@ export function useNetworkStatus() {
       }
 
       // Remove processed items from queue
-      const remainingQueue = syncQueue.filter(item => !processedIds.includes(item.id));
-      setSyncQueue(remainingQueue);
-      setStatus(prev => ({
-        ...prev,
-        pendingSyncCount: remainingQueue.length,
-        isSyncing: false,
-      }));
+      setSyncQueue(prevQueue => {
+        const remainingQueue = prevQueue.filter(item => !processedIds.includes(item.id));
 
-      await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remainingQueue));
+        setStatus(prev => ({
+          ...prev,
+          pendingSyncCount: remainingQueue.length,
+          isSyncing: false,
+        }));
+
+        // Save to storage asynchronously
+        AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remainingQueue))
+          .catch(error => console.error('Error saving sync queue:', error));
+
+        return remainingQueue;
+      });
     } catch (error) {
       console.error('Error processing sync queue:', error);
       setStatus(prev => ({ ...prev, isSyncing: false }));
     }
-  }, [status.isConnected, status.isSyncing, syncQueue]);
+  }, []); // No dependencies needed with functional setState
 
   // Clear sync queue
   const clearSyncQueue = useCallback(async () => {

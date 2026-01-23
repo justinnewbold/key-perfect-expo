@@ -21,6 +21,8 @@ import {
   Friend,
   Challenge,
   UserProfile,
+  Tournament,
+  TournamentHistory,
   getLeaderboardData,
   getFriends,
   getChallenges,
@@ -30,11 +32,15 @@ import {
   removeFriend,
   updateDisplayName,
   updateAvatar,
+  getCurrentTournament,
+  getTournamentHistory,
+  getTimeUntilTournamentEnd,
+  getUserPrize,
   AVATAR_EMOJIS,
 } from '../services/leaderboard';
 import { useApp } from '../context/AppContext';
 
-type TabType = 'leaderboard' | 'friends' | 'challenges' | 'profile';
+type TabType = 'leaderboard' | 'tournament' | 'friends' | 'challenges' | 'profile';
 type LeaderboardCategory = 'daily' | 'weekly' | 'allTime' | 'speed' | 'survival';
 
 export default function LeaderboardScreen() {
@@ -44,6 +50,9 @@ export default function LeaderboardScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('leaderboard');
   const [leaderboardCategory, setLeaderboardCategory] = useState<LeaderboardCategory>('daily');
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [tournamentHistory, setTournamentHistory] = useState<TournamentHistory | null>(null);
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isEnding: false });
   const [friends, setFriends] = useState<Friend[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -55,14 +64,18 @@ export default function LeaderboardScreen() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [lb, fr, ch, pr, fc] = await Promise.all([
+    const [lb, tr, th, fr, ch, pr, fc] = await Promise.all([
       getLeaderboardData(),
+      getCurrentTournament(),
+      getTournamentHistory(),
       getFriends(),
       getChallenges(),
       getUserProfile(),
       getFriendCode(),
     ]);
     setLeaderboardData(lb);
+    setTournament(tr);
+    setTournamentHistory(th);
     setFriends(fr);
     setChallenges(ch);
     setProfile(pr);
@@ -70,11 +83,31 @@ export default function LeaderboardScreen() {
     if (pr) {
       setNewName(pr.displayName);
     }
+    if (tr) {
+      setTimeLeft(getTimeUntilTournamentEnd(tr));
+    }
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Update tournament timer every second
+  useEffect(() => {
+    if (!tournament) return;
+
+    const interval = setInterval(() => {
+      const time = getTimeUntilTournamentEnd(tournament);
+      setTimeLeft(time);
+
+      // Reload if tournament ended
+      if (time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds === 0) {
+        loadData();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [tournament, loadData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -378,6 +411,162 @@ export default function LeaderboardScreen() {
     );
   };
 
+  const renderTournamentTab = () => {
+    if (!tournament || !tournamentHistory) return null;
+
+    const userEntry = tournament.leaderboard.find(e => e.userId === profile?.id);
+    const userRank = userEntry?.rank || 0;
+    const userScore = userEntry?.weekScore || 0;
+    const prize = getUserPrize(userRank);
+
+    return (
+      <>
+        {/* Timer & Prize Info */}
+        <GlassCard style={styles.tournamentHeader}>
+          <View style={styles.tournamentTitleRow}>
+            <Ionicons name="trophy" size={28} color={COLORS.warning} />
+            <View style={styles.tournamentTitleInfo}>
+              <Text style={styles.tournamentTitle}>Week {tournament.weekNumber} Tournament</Text>
+              <Text style={styles.tournamentSubtitle}>
+                {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
+              </Text>
+            </View>
+          </View>
+
+          {/* Countdown Timer */}
+          <View style={styles.tournamentTimer}>
+            <Text style={styles.timerLabel}>Ends in:</Text>
+            <View style={styles.timerDisplay}>
+              {timeLeft.days > 0 && (
+                <View style={styles.timerUnit}>
+                  <Text style={styles.timerNumber}>{timeLeft.days}</Text>
+                  <Text style={styles.timerText}>d</Text>
+                </View>
+              )}
+              <View style={styles.timerUnit}>
+                <Text style={styles.timerNumber}>{String(timeLeft.hours).padStart(2, '0')}</Text>
+                <Text style={styles.timerText}>h</Text>
+              </View>
+              <View style={styles.timerUnit}>
+                <Text style={styles.timerNumber}>{String(timeLeft.minutes).padStart(2, '0')}</Text>
+                <Text style={styles.timerText}>m</Text>
+              </View>
+              <View style={styles.timerUnit}>
+                <Text style={styles.timerNumber}>{String(timeLeft.seconds).padStart(2, '0')}</Text>
+                <Text style={styles.timerText}>s</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* User's Current Standing */}
+          <View style={styles.userStanding}>
+            <View style={styles.standingRow}>
+              <Text style={styles.standingLabel}>Your Rank:</Text>
+              <Text style={[styles.standingValue, userRank <= 10 && styles.standingValuePrize]}>
+                #{userRank || 'Not ranked'}
+              </Text>
+            </View>
+            <View style={styles.standingRow}>
+              <Text style={styles.standingLabel}>Your Score:</Text>
+              <Text style={styles.standingValue}>{userScore.toLocaleString()}</Text>
+            </View>
+            {prize && (
+              <View style={[styles.prizeIndicator, timeLeft.isEnding && styles.prizeIndicatorPulsing]}>
+                <Text style={styles.prizeBadge}>{prize.badge}</Text>
+                <Text style={styles.prizeText}>
+                  {prize.title} - {prize.xpBonus} XP Bonus!
+                </Text>
+              </View>
+            )}
+          </View>
+        </GlassCard>
+
+        {/* Current Leaderboard */}
+        <GlassCard style={styles.leaderboardCard}>
+          <Text style={styles.cardTitle}>Tournament Leaderboard</Text>
+          {tournament.leaderboard.slice(0, 20).map((entry, index) => {
+            const entryPrize = getUserPrize(entry.rank);
+
+            return (
+              <View
+                key={entry.userId}
+                style={[
+                  styles.leaderboardEntry,
+                  index === 0 && styles.firstPlace,
+                  index === 1 && styles.secondPlace,
+                  index === 2 && styles.thirdPlace,
+                  entry.userId === profile?.id && styles.currentUser,
+                ]}
+              >
+                <View style={styles.rankContainer}>
+                  {index < 3 ? (
+                    <Text style={styles.medalEmoji}>
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                    </Text>
+                  ) : (
+                    <Text style={styles.rankText}>{entry.rank}</Text>
+                  )}
+                </View>
+                <Text style={styles.avatarEmoji}>{entry.avatarEmoji}</Text>
+                <View style={styles.entryInfo}>
+                  <Text style={styles.entryName}>
+                    {entry.displayName}
+                    {entry.userId === profile?.id && ' (You)'}
+                  </Text>
+                  {entryPrize && (
+                    <Text style={styles.entryPrize}>
+                      {entryPrize.badge} {entryPrize.title}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.entryScore}>{entry.weekScore.toLocaleString()}</Text>
+              </View>
+            );
+          })}
+        </GlassCard>
+
+        {/* Past Tournaments */}
+        {tournamentHistory.tournaments.length > 0 && (
+          <GlassCard style={styles.historyCard}>
+            <Text style={styles.cardTitle}>Your Tournament History</Text>
+            <View style={styles.historyStats}>
+              <View style={styles.historyStat}>
+                <Text style={styles.historyStatValue}>{tournamentHistory.userBestRank}</Text>
+                <Text style={styles.historyStatLabel}>Best Rank</Text>
+              </View>
+              <View style={styles.historyStat}>
+                <Text style={styles.historyStatValue}>{tournamentHistory.userTotalWins}</Text>
+                <Text style={styles.historyStatLabel}>Wins</Text>
+              </View>
+              <View style={styles.historyStat}>
+                <Text style={styles.historyStatValue}>{tournamentHistory.userTotalPrizes.length}</Text>
+                <Text style={styles.historyStatLabel}>Prizes</Text>
+              </View>
+            </View>
+
+            <Text style={styles.historyTitle}>Recent Tournaments</Text>
+            {tournamentHistory.tournaments.slice(0, 5).map((pastTournament) => {
+              const userPastEntry = pastTournament.leaderboard.find(e => e.userId === profile?.id);
+              return (
+                <View key={pastTournament.id} style={styles.historyEntry}>
+                  <Text style={styles.historyWeek}>Week {pastTournament.weekNumber}</Text>
+                  {userPastEntry ? (
+                    <>
+                      <Text style={styles.historyRank}>Rank #{userPastEntry.rank}</Text>
+                      <Text style={styles.historyScore}>{userPastEntry.weekScore.toLocaleString()}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.historyNotParticipated}>Not participated</Text>
+                  )}
+                </View>
+              );
+            })}
+          </GlassCard>
+        )}
+      </>
+    );
+  };
+
   const renderProfileTab = () => (
     <>
       <GlassCard style={styles.profileCard}>
@@ -484,7 +673,8 @@ export default function LeaderboardScreen() {
   );
 
   const tabs: { key: TabType; icon: string; label: string }[] = [
-    { key: 'leaderboard', icon: 'trophy', label: 'Rankings' },
+    { key: 'leaderboard', icon: 'podium', label: 'Rankings' },
+    { key: 'tournament', icon: 'trophy', label: 'Tournament' },
     { key: 'friends', icon: 'people', label: 'Friends' },
     { key: 'challenges', icon: 'flash', label: 'Challenges' },
     { key: 'profile', icon: 'person', label: 'Profile' },
@@ -547,6 +737,7 @@ export default function LeaderboardScreen() {
 
         {/* Tab Content */}
         {activeTab === 'leaderboard' && renderLeaderboardTab()}
+        {activeTab === 'tournament' && renderTournamentTab()}
         {activeTab === 'friends' && renderFriendsTab()}
         {activeTab === 'challenges' && renderChallengesTab()}
         {activeTab === 'profile' && renderProfileTab()}
@@ -994,5 +1185,173 @@ const styles = StyleSheet.create({
   closePickerText: {
     color: COLORS.textSecondary,
     fontSize: 16,
+  },
+  // Tournament Tab Styles
+  tournamentHeader: {
+    marginBottom: SPACING.md,
+    borderWidth: 2,
+    borderColor: COLORS.warning + '40',
+  },
+  tournamentTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  tournamentTitleInfo: {
+    flex: 1,
+  },
+  tournamentTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  tournamentSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  tournamentTimer: {
+    marginBottom: SPACING.md,
+  },
+  timerLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: SPACING.xs,
+  },
+  timerDisplay: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  timerUnit: {
+    flex: 1,
+    backgroundColor: COLORS.cardBackground + '80',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+    alignItems: 'center',
+  },
+  timerNumber: {
+    color: COLORS.warning,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  timerText: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  userStanding: {
+    backgroundColor: COLORS.cardBackground + '60',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+  },
+  standingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  standingLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  standingValue: {
+    color: COLORS.textPrimary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  standingValuePrize: {
+    color: COLORS.warning,
+  },
+  prizeIndicator: {
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.glassBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  prizeIndicatorPulsing: {
+    backgroundColor: COLORS.warning + '20',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.sm,
+  },
+  prizeBadge: {
+    fontSize: 24,
+  },
+  prizeText: {
+    color: COLORS.warning,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  entryPrize: {
+    color: COLORS.warning,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  historyCard: {
+    marginBottom: SPACING.md,
+  },
+  historyStats: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  historyStat: {
+    flex: 1,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  historyStatValue: {
+    color: COLORS.warning,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  historyStatLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: SPACING.xs,
+  },
+  historyTitle: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  historyEntry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  historyWeek: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    width: 80,
+  },
+  historyRank: {
+    color: COLORS.warning,
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 70,
+  },
+  historyScore: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    textAlign: 'right',
+    flex: 1,
+  },
+  historyNotParticipated: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    flex: 1,
+    textAlign: 'right',
   },
 });

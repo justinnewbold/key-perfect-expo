@@ -15,6 +15,8 @@ import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import Button from '../components/Button';
+import ComboIndicator from '../components/ComboIndicator';
+import GameProgressBar from '../components/GameProgressBar';
 import {
   GAME_MODES,
   ALL_NOTES,
@@ -27,12 +29,23 @@ import {
   ChordType,
   XP_PER_CORRECT,
   DAILY_CHALLENGE_BONUS,
+  calculateComboXP,
+  getComboMessage,
 } from '../types';
 import { shuffleArray, getWrongOptions } from '../utils/audioUtils';
 import { safeHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from '../utils/haptics';
 import { isDailyChallengeCompletedToday, markDailyChallengeCompleted } from '../utils/storage';
+import { submitScore, syncProfileWithStats, submitTournamentScore } from '../services/leaderboard';
 
 const { width } = Dimensions.get('window');
+
+// Game timing constants
+const SPEED_MODE_DURATION = 30; // seconds
+const SPEED_MODE_TIMER_INTERVAL = 1000; // ms
+const SPEED_MODE_ACCURACY_THRESHOLD = 20; // seconds threshold for difficulty adjustment
+const ANSWER_FEEDBACK_DELAY = 500; // ms
+const INTERVAL_NOTE_DELAY = 100; // ms
+const CHORD_PLAYBACK_DELAY = 300; // ms
 
 type ModeId = 'speed' | 'survival' | 'daily' | 'intervals' | 'scales' | 'progressions' | 'inversions' | 'reverse';
 
@@ -41,6 +54,8 @@ interface SpeedGameState {
   currentItem: string;
   options: string[];
   timeLeft: number;
+  combo: number;
+  difficultyLevel: number; // Adaptive difficulty: number of options
 }
 
 interface SurvivalGameState {
@@ -49,6 +64,8 @@ interface SurvivalGameState {
   currentItem: string;
   options: string[];
   level: number;
+  combo: number;
+  difficultyLevel: number;
 }
 
 interface IntervalGameState {
@@ -56,6 +73,7 @@ interface IntervalGameState {
   attempts: number;
   currentInterval: typeof INTERVALS[0];
   options: typeof INTERVALS;
+  combo: number;
 }
 
 interface DailyGameState {
@@ -64,6 +82,7 @@ interface DailyGameState {
   requiredCorrect: number;
   currentItem: string;
   options: string[];
+  combo: number;
 }
 
 interface ScalesGameState {
@@ -71,6 +90,7 @@ interface ScalesGameState {
   attempts: number;
   currentScale: typeof SCALES[0];
   options: typeof SCALES;
+  combo: number;
 }
 
 interface ProgressionsGameState {
@@ -78,6 +98,7 @@ interface ProgressionsGameState {
   attempts: number;
   currentProgression: typeof PROGRESSIONS[0];
   options: typeof PROGRESSIONS;
+  combo: number;
 }
 
 interface InversionsGameState {
@@ -86,14 +107,17 @@ interface InversionsGameState {
   currentChord: string;
   currentInversion: 'root' | 'first' | 'second';
   options: ('root' | 'first' | 'second')[];
+  combo: number;
 }
 
 interface ReverseGameState {
   score: number;
   attempts: number;
   targetItem: string;
+  options: string[];
   hasPlayed: boolean;
   isCorrect: boolean | null;
+  combo: number;
 }
 
 export default function GameModeScreen() {
@@ -210,7 +234,7 @@ export default function GameModeScreen() {
           }
           return { ...prev, timeLeft: prev.timeLeft - 1 };
         });
-      }, 1000);
+      }, SPEED_MODE_TIMER_INTERVAL);
     }
 
     return () => {
@@ -255,14 +279,17 @@ export default function GameModeScreen() {
   const startSpeedMode = () => {
     const items = ALL_NOTES;
     const currentItem = items[Math.floor(Math.random() * items.length)];
+    const difficultyLevel = 4; // Start with 4 options
     // Ensure unique options
-    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
+    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, difficultyLevel - 1)])]);
 
     setSpeedState({
       score: 0,
       currentItem,
       options,
-      timeLeft: 30,
+      timeLeft: SPEED_MODE_DURATION,
+      combo: 0,
+      difficultyLevel,
     });
     setSpeedAnswerState('default');
   };
@@ -274,9 +301,15 @@ export default function GameModeScreen() {
     const isCorrect = answer === speedState.currentItem;
     setSpeedAnswerState(isCorrect ? 'correct' : 'incorrect');
 
+    // Update combo
+    const newCombo = isCorrect ? speedState.combo + 1 : 0;
+    const comboMessage = getComboMessage(newCombo);
+
     if (isCorrect) {
       safeHaptics.notificationAsync(NotificationFeedbackType.Success);
-      await addXP(XP_PER_CORRECT);
+      // Apply combo multiplier to XP
+      const xpEarned = calculateComboXP(XP_PER_CORRECT, newCombo);
+      await addXP(xpEarned);
     } else {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
@@ -290,14 +323,26 @@ export default function GameModeScreen() {
     safeSetTimeout(() => {
       const items = ALL_NOTES;
       const currentItem = items[Math.floor(Math.random() * items.length)];
+
+      // Adaptive difficulty: adjust number of options based on recent performance
+      const recentAccuracy = speedState.score / Math.max(1, speedState.score + (speedState.timeLeft < SPEED_MODE_ACCURACY_THRESHOLD ? SPEED_MODE_DURATION - speedState.timeLeft - speedState.score : 1));
+      let newDifficulty = speedState.difficultyLevel;
+      if (recentAccuracy > 0.8 && newDifficulty < 6) {
+        newDifficulty++; // Make it harder
+      } else if (recentAccuracy < 0.5 && newDifficulty > 3) {
+        newDifficulty--; // Make it easier
+      }
+
       // Ensure unique options
-      const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
+      const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, newDifficulty - 1)])]);
 
       setSpeedState(prev => prev ? {
         ...prev,
         score: prev.score + (isCorrect ? 1 : 0),
         currentItem,
         options,
+        combo: newCombo,
+        difficultyLevel: newDifficulty,
       } : prev);
       setSpeedAnswerState('default');
     }, 300);
@@ -305,11 +350,32 @@ export default function GameModeScreen() {
 
   // End Speed Mode
   const endSpeedMode = async () => {
-    if (speedState && speedState.score > stats.speedModeHighScore) {
+    if (speedState) {
       try {
-        await updateStats({ speedModeHighScore: speedState.score });
+        // Update high score if beaten
+        if (speedState.score > stats.speedModeHighScore) {
+          await updateStats({ speedModeHighScore: speedState.score });
+        }
+
+        // Submit to leaderboard
+        const result = await submitScore('speed', speedState.score);
+
+        // Submit to tournament
+        await submitTournamentScore(speedState.score);
+
+        // Sync profile with stats
+        await syncProfileWithStats({
+          totalXP: stats.totalXP,
+          currentStreak: stats.currentStreak,
+          longestStreak: stats.longestStreak,
+        });
+
+        // Show feedback if personal best
+        if (result.isPersonalBest && speedState.score > 0) {
+          safeHaptics.notificationAsync(NotificationFeedbackType.Success);
+        }
       } catch (error) {
-        console.error('Error updating stats:', error);
+        console.error('Error ending speed mode:', error);
       }
     }
     navigation.goBack();
@@ -319,8 +385,9 @@ export default function GameModeScreen() {
   const startSurvivalMode = () => {
     const items = ALL_NOTES;
     const currentItem = items[Math.floor(Math.random() * items.length)];
+    const difficultyLevel = 4;
     // Ensure unique options
-    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, 3)])]);
+    const options = shuffleArray([...new Set([currentItem, ...getWrongOptions(currentItem, items, difficultyLevel - 1)])]);
 
     setSurvivalState({
       score: 0,
@@ -328,6 +395,8 @@ export default function GameModeScreen() {
       currentItem,
       options,
       level: 1,
+      combo: 0,
+      difficultyLevel,
     });
     setSurvivalAnswerState('default');
   };
@@ -339,9 +408,14 @@ export default function GameModeScreen() {
     const isCorrect = answer === survivalState.currentItem;
     setSurvivalAnswerState(isCorrect ? 'correct' : 'incorrect');
 
+    // Update combo
+    const newCombo = isCorrect ? survivalState.combo + 1 : 0;
+
     if (isCorrect) {
       safeHaptics.notificationAsync(NotificationFeedbackType.Success);
-      await addXP(XP_PER_CORRECT);
+      // Apply combo multiplier to XP
+      const xpEarned = calculateComboXP(XP_PER_CORRECT, newCombo);
+      await addXP(xpEarned);
     } else {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
@@ -358,10 +432,30 @@ export default function GameModeScreen() {
       const newLevel = Math.floor(newScore / 5) + 1;
 
       if (newLives === 0) {
-        // Game over
-        if (newScore > stats.survivalModeHighScore) {
-          updateStats({ survivalModeHighScore: newScore }).catch(console.error);
-        }
+        // Game over - submit to leaderboard
+        (async () => {
+          try {
+            if (newScore > stats.survivalModeHighScore) {
+              await updateStats({ survivalModeHighScore: newScore });
+            }
+
+            // Submit to leaderboard
+            await submitScore('survival', newScore);
+
+            // Submit to tournament
+            await submitTournamentScore(newScore);
+
+            // Sync profile with stats
+            await syncProfileWithStats({
+              totalXP: stats.totalXP,
+              currentStreak: stats.currentStreak,
+              longestStreak: stats.longestStreak,
+            });
+          } catch (error) {
+            console.error('Error submitting survival score:', error);
+          }
+        })();
+
         setSurvivalState(prev => prev ? { ...prev, lives: 0, score: newScore } : prev);
         return;
       }
@@ -380,6 +474,8 @@ export default function GameModeScreen() {
         currentItem,
         options,
         level: newLevel,
+        combo: newCombo,
+        difficultyLevel: numOptions,
       });
       setSurvivalAnswerState('default');
     }, 500);
@@ -396,6 +492,7 @@ export default function GameModeScreen() {
       attempts: 0,
       currentInterval,
       options,
+      combo: 0,
     });
     setIntervalAnswerState('default');
   };
@@ -433,7 +530,7 @@ export default function GameModeScreen() {
         options,
       });
       setIntervalAnswerState('default');
-    }, 500);
+    }, ANSWER_FEEDBACK_DELAY);
   };
 
   // Start Daily Challenge
@@ -449,6 +546,7 @@ export default function GameModeScreen() {
       requiredCorrect: 10,
       currentItem,
       options,
+      combo: 0,
     });
     setDailyAnswerState('default');
   };
@@ -478,21 +576,25 @@ export default function GameModeScreen() {
 
     // Check if challenge is complete (10 correct answers)
     if (newScore >= dailyState.requiredCorrect) {
+      // Complete the daily challenge with proper async handling
+      const completeChallenge = async () => {
+        try {
+          await addXP(DAILY_CHALLENGE_BONUS);
+          await updateStats({
+            dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
+          });
+          await markDailyChallengeCompleted();
+          // Update all state together after async operations complete
+          setDailyCompleted(true);
+          setDailyAlreadyDone(true);
+          setDailyState(null);
+        } catch (error) {
+          console.error('Error completing daily challenge:', error);
+        }
+      };
+
       safeSetTimeout(() => {
-        (async () => {
-          try {
-            await addXP(DAILY_CHALLENGE_BONUS);
-            await updateStats({
-              dailyChallengesCompleted: stats.dailyChallengesCompleted + 1
-            });
-            await markDailyChallengeCompleted();
-            setDailyCompleted(true);
-            setDailyAlreadyDone(true);
-            setDailyState(null);
-          } catch (error) {
-            console.error('Error completing daily challenge:', error);
-          }
-        })();
+        completeChallenge();
       }, 500);
       return;
     }
@@ -537,6 +639,7 @@ export default function GameModeScreen() {
       attempts: 0,
       currentScale,
       options,
+      combo: 0,
     });
     setScalesAnswerState('default');
   };
@@ -590,7 +693,7 @@ export default function GameModeScreen() {
           const noteIndex = (rootIndex + interval) % 12;
           const octave = 4 + Math.floor((rootIndex + interval) / 12);
           await playNote(ALL_NOTES[noteIndex], octave, 0.25);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, INTERVAL_NOTE_DELAY));
         }
       } catch (error) {
         console.error('Error playing scale:', error);
@@ -609,6 +712,7 @@ export default function GameModeScreen() {
       attempts: 0,
       currentProgression,
       options,
+      combo: 0,
     });
     setProgressionsAnswerState('default');
   };
@@ -634,7 +738,7 @@ export default function GameModeScreen() {
           const chord = numeralToChord[numeral];
           if (chord) {
             await playChord(chord.root, chord.type);
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, CHORD_PLAYBACK_DELAY));
           }
         }
       } catch (error) {
@@ -692,6 +796,7 @@ export default function GameModeScreen() {
       currentChord,
       currentInversion,
       options: shuffleArray([...inversions]),
+      combo: 0,
     });
     setInversionsAnswerState('default');
   };
@@ -774,13 +879,17 @@ export default function GameModeScreen() {
   const startReverseMode = () => {
     const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
     const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+    // Generate 4 unique options including the target
+    const options = shuffleArray([...new Set([targetItem, ...getWrongOptions(targetItem, allItems, 3)])]);
 
     setReverseState({
       score: 0,
       attempts: 0,
       targetItem,
+      options,
       hasPlayed: false,
       isCorrect: null,
+      combo: 0,
     });
     setReverseAnswerState('default');
   };
@@ -809,12 +918,12 @@ export default function GameModeScreen() {
     }
   };
 
-  // Handle Reverse Mode confirmation
-  const handleReverseConfirm = async () => {
+  // Handle Reverse Mode answer
+  const handleReverseAnswer = async (answer: string) => {
     if (!reverseState || reverseAnswerState !== 'default') return;
 
-    // Compare what user played with target
-    const isCorrect = reverseState.hasPlayed;
+    // Validate the user's answer
+    const isCorrect = answer === reverseState.targetItem;
     setReverseAnswerState(isCorrect ? 'correct' : 'incorrect');
 
     if (isCorrect) {
@@ -834,12 +943,15 @@ export default function GameModeScreen() {
     safeSetTimeout(() => {
       const allItems = [...ALL_NOTES, ...MAJOR_CHORDS.slice(0, 4)];
       const targetItem = allItems[Math.floor(Math.random() * allItems.length)];
+      // Generate new options for next question
+      const options = shuffleArray([...new Set([targetItem, ...getWrongOptions(targetItem, allItems, 3)])]);
 
       setReverseState({
         ...reverseState,
         score: reverseState.score + (isCorrect ? 1 : 0),
         attempts: reverseState.attempts + 1,
         targetItem,
+        options,
         hasPlayed: false,
         isCorrect: null,
       });
@@ -929,6 +1041,17 @@ export default function GameModeScreen() {
           </View>
 
           <Text style={styles.scoreText}>Score: {speedState.score}</Text>
+
+          {/* Combo Indicator */}
+          <ComboIndicator combo={speedState.combo} style={{ marginBottom: SPACING.md }} />
+
+          {/* Progress Visualization */}
+          <GameProgressBar
+            score={speedState.score}
+            attempts={speedState.score + (SPEED_MODE_DURATION - speedState.timeLeft - speedState.score)}
+            previousBest={stats.speedModeHighScore / SPEED_MODE_DURATION * 100}
+            style={{ marginBottom: SPACING.lg }}
+          />
 
           <TouchableOpacity style={styles.playButton} onPress={playSound}>
             <LinearGradient
@@ -1413,11 +1536,6 @@ export default function GameModeScreen() {
             Score: {reverseState.score} / {reverseState.attempts}
           </Text>
 
-          <GlassCard style={styles.targetCard}>
-            <Text style={styles.targetLabel}>Play this sound:</Text>
-            <Text style={styles.targetItem}>{reverseState.targetItem}</Text>
-          </GlassCard>
-
           <TouchableOpacity style={styles.playButton} onPress={playReverseTarget}>
             <LinearGradient
               colors={[COLORS.reverseMode, COLORS.reverseMode + 'CC']}
@@ -1428,19 +1546,30 @@ export default function GameModeScreen() {
           </TouchableOpacity>
 
           <Text style={styles.instruction}>
-            {reverseState.hasPlayed
-              ? 'Sound played! Press confirm to continue.'
-              : 'Press above to hear the sound, then confirm.'}
+            Click to hear the sound, then identify it below
           </Text>
 
-          <Button
-            title={reverseState.hasPlayed ? 'Confirm & Next' : 'Play First'}
-            onPress={handleReverseConfirm}
-            variant={reverseState.hasPlayed ? 'success' : 'secondary'}
-            size="lg"
-            disabled={!reverseState.hasPlayed || reverseAnswerState !== 'default'}
-            style={{ marginTop: SPACING.lg }}
-          />
+          <View style={styles.answersGrid}>
+            {reverseState.options.map((option) => {
+              let buttonStyle = styles.answerButton;
+              if (reverseAnswerState === 'correct' && option === reverseState.targetItem) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              } else if (reverseAnswerState === 'incorrect' && option === reverseState.targetItem) {
+                buttonStyle = { ...buttonStyle, ...styles.answerCorrect };
+              }
+
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={buttonStyle}
+                  onPress={() => handleReverseAnswer(option)}
+                  disabled={reverseAnswerState !== 'default'}
+                >
+                  <Text style={styles.answerText}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </LinearGradient>
     );

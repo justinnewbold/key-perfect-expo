@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +8,12 @@ import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
 import XPDisplay from '../components/XPDisplay';
-import { GAME_MODES, LEVELS } from '../types';
+import PracticeCoach from '../components/PracticeCoach';
+import EnhancedAICoach from '../components/EnhancedAICoach';
+import TournamentBanner from '../components/TournamentBanner';
+import StreakDashboard from '../components/StreakDashboard';
+import OfflineIndicator from '../components/OfflineIndicator';
+import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
 
@@ -41,6 +46,24 @@ export default function HomeScreen() {
   // Safe index for LEVELS array (handle edge case where unlockedCount is 0)
   const currentLevelIndex = Math.max(0, Math.min(unlockedCount - 1, LEVELS.length - 1));
   const currentLevel = LEVELS[currentLevelIndex];
+
+  // Fallback if LEVELS array is empty or undefined
+  if (!currentLevel) {
+    console.error('LEVELS array is empty or undefined');
+    return null;
+  }
+
+  const handleStartPractice = (weakAreas: WeakArea[]) => {
+    if (weakAreas.length > 0) {
+      navigation.navigate('WeakAreas');
+    } else {
+      // No weak areas, suggest challenge modes
+      navigation.navigate('GameModes');
+    }
+  };
+
+  // Memoize the sliced game modes to prevent unnecessary re-renders
+  const quickGameModes = useMemo(() => GAME_MODES.slice(0, 4), []);
 
   return (
     <LinearGradient
@@ -76,6 +99,58 @@ export default function HomeScreen() {
         {/* XP Display */}
         <XPDisplay />
 
+        {/* Offline Indicator */}
+        <OfflineIndicator />
+
+        {/* Quick Access */}
+        <View style={styles.quickAccessRow}>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Analytics')}
+            accessibilityLabel="View Analytics"
+            accessibilityRole="button"
+          >
+            <Ionicons name="analytics" size={24} color={COLORS.info} />
+            <Text style={styles.quickAccessLabel}>Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('EventsCalendar')}
+            accessibilityLabel="View Events"
+            accessibilityRole="button"
+          >
+            <Ionicons name="calendar" size={24} color={COLORS.success} />
+            <Text style={styles.quickAccessLabel}>Live Events</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('LearningPath')}
+            accessibilityLabel="View Learning Path"
+            accessibilityRole="button"
+          >
+            <Ionicons name="map" size={24} color={COLORS.primary} />
+            <Text style={styles.quickAccessLabel}>Learning Path</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Friends')}
+            accessibilityLabel="View Friends"
+            accessibilityRole="button"
+          >
+            <Ionicons name="people" size={24} color={COLORS.warning} />
+            <Text style={styles.quickAccessLabel}>Friends</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAccessCard}
+            onPress={() => navigation.navigate('Profile')}
+            accessibilityLabel="View Profile"
+            accessibilityRole="button"
+          >
+            <Ionicons name="person" size={24} color={COLORS.error} />
+            <Text style={styles.quickAccessLabel}>Profile</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Quick Stats */}
         <View style={styles.statsRow}>
           {quickStats.map((stat) => (
@@ -90,6 +165,22 @@ export default function HomeScreen() {
             </GlassCard>
           ))}
         </View>
+
+        {/* Streak Dashboard */}
+        {stats.currentStreak > 0 && (
+          <StreakDashboard style={styles.section} />
+        )}
+
+        {/* Weekly Tournament Banner */}
+        <TournamentBanner style={styles.section} />
+
+        {/* Enhanced AI Coach */}
+        {stats.totalAttempts > 10 && (
+          <EnhancedAICoach
+            stats={stats}
+            style={styles.section}
+          />
+        )}
 
         {/* Continue Learning */}
         <GlassCard style={styles.section}>
@@ -198,12 +289,12 @@ export default function HomeScreen() {
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.modesScroll}
           >
-            {GAME_MODES.slice(0, 4).map((mode) => (
+            {quickGameModes.map((mode) => (
               <TouchableOpacity
                 key={mode.id}
                 style={[styles.modeCard, { backgroundColor: mode.color + '30' }]}
@@ -385,5 +476,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: SPACING.xs,
     textAlign: 'center',
+  },
+  quickAccessRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginVertical: SPACING.sm,
+  },
+  quickAccessCard: {
+    flex: 1,
+    backgroundColor: COLORS.cardBackground + '80',
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  quickAccessLabel: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

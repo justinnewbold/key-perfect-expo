@@ -15,7 +15,15 @@ export async function loadStats(): Promise<UserStats> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
     if (data) {
-      return { ...DEFAULT_STATS, ...JSON.parse(data) };
+      try {
+        const parsed = JSON.parse(data);
+        return { ...DEFAULT_STATS, ...parsed };
+      } catch (parseError) {
+        console.error('Error parsing stats JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.STATS);
+        return DEFAULT_STATS;
+      }
     }
   } catch (error) {
     console.error('Error loading stats:', error);
@@ -36,7 +44,15 @@ export async function loadSettings(): Promise<UserSettings> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (data) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      try {
+        const parsed = JSON.parse(data);
+        return { ...DEFAULT_SETTINGS, ...parsed };
+      } catch (parseError) {
+        console.error('Error parsing settings JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.SETTINGS);
+        return DEFAULT_SETTINGS;
+      }
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -65,7 +81,14 @@ export async function loadDailyChallenge(): Promise<DailyChallenge | null> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_CHALLENGE);
     if (data) {
-      return JSON.parse(data);
+      try {
+        return JSON.parse(data);
+      } catch (parseError) {
+        console.error('Error parsing daily challenge JSON, clearing corrupted data:', parseError);
+        // Clear corrupted data
+        await AsyncStorage.removeItem(STORAGE_KEYS.DAILY_CHALLENGE);
+        return null;
+      }
     }
   } catch (error) {
     console.error('Error loading daily challenge:', error);
@@ -222,6 +245,17 @@ export function checkAchievements(stats: UserStats): string[] {
           earned = stats.dailyChallengesCompleted >= achievement.requirement;
         } else if (achievement.id === 'chord_master') {
           earned = stats.levelsCompleted >= 5;
+        } else if (achievement.id === 'perfect_pitch') {
+          // Check if all 8 levels have been completed with perfect scores
+          earned = stats.perfectLevels >= achievement.requirement;
+        } else if (achievement.id === 'sharp_ears') {
+          // Check if all sharp notes have been identified correctly without mistakes
+          const sharpNotes = ['C#', 'D#', 'F#', 'G#', 'A#'];
+          const allSharpsCorrect = sharpNotes.every(note => {
+            const accuracy = stats.noteAccuracy[note];
+            return accuracy && accuracy.correct > 0 && accuracy.correct === accuracy.total;
+          });
+          earned = allSharpsCorrect;
         }
         break;
     }

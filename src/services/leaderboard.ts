@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   LOCAL_LEADERBOARD: 'keyPerfect_localLeaderboard',
   FRIENDS: 'keyPerfect_friends',
   CHALLENGES: 'keyPerfect_challenges',
+  TOURNAMENT: 'keyPerfect_tournament',
+  TOURNAMENT_HISTORY: 'keyPerfect_tournamentHistory',
 };
 
 export interface UserProfile {
@@ -377,4 +379,292 @@ export async function syncProfileWithStats(stats: {
   profile.currentStreak = stats.currentStreak;
   profile.longestStreak = stats.longestStreak;
   await saveUserProfile(profile);
+}
+
+// ===== TOURNAMENT SYSTEM =====
+
+export interface TournamentPrize {
+  rank: number;
+  badge: string;
+  title: string;
+  xpBonus: number;
+}
+
+export interface TournamentEntry extends LeaderboardEntry {
+  weekScore: number; // Total score for the week
+}
+
+export interface Tournament {
+  id: string;
+  weekNumber: number; // Week number of the year
+  year: number;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'ended';
+  leaderboard: TournamentEntry[];
+  prizes: TournamentPrize[];
+}
+
+export interface TournamentHistory {
+  tournaments: Tournament[];
+  userBestRank: number;
+  userTotalWins: number;
+  userTotalPrizes: TournamentPrize[];
+}
+
+// Tournament prizes (top 10)
+export const TOURNAMENT_PRIZES: TournamentPrize[] = [
+  { rank: 1, badge: '👑', title: 'Champion', xpBonus: 1000 },
+  { rank: 2, badge: '🥈', title: 'Runner-up', xpBonus: 750 },
+  { rank: 3, badge: '🥉', title: 'Third Place', xpBonus: 500 },
+  { rank: 4, badge: '🏅', title: 'Top 5', xpBonus: 300 },
+  { rank: 5, badge: '🏅', title: 'Top 5', xpBonus: 300 },
+  { rank: 6, badge: '🎖️', title: 'Top 10', xpBonus: 200 },
+  { rank: 7, badge: '🎖️', title: 'Top 10', xpBonus: 200 },
+  { rank: 8, badge: '🎖️', title: 'Top 10', xpBonus: 200 },
+  { rank: 9, badge: '🎖️', title: 'Top 10', xpBonus: 200 },
+  { rank: 10, badge: '🎖️', title: 'Top 10', xpBonus: 200 },
+];
+
+// Get week number from date
+function getWeekNumber(date: Date): { week: number; year: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { week: weekNo, year: d.getUTCFullYear() };
+}
+
+// Get Monday of current week
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+}
+
+// Get Sunday of current week
+function getSundayOfWeek(date: Date): Date {
+  const monday = getMondayOfWeek(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday;
+}
+
+// Get or create current tournament
+export async function getCurrentTournament(): Promise<Tournament> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENT);
+    if (data) {
+      const tournament: Tournament = JSON.parse(data);
+
+      // Check if tournament is still active (ends on Sunday)
+      const now = new Date();
+      const { week, year } = getWeekNumber(now);
+
+      if (tournament.weekNumber === week && tournament.year === year) {
+        return tournament;
+      } else {
+        // Tournament ended, archive it and create new one
+        await archiveTournament(tournament);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading tournament:', error);
+  }
+
+  // Create new tournament
+  return await createNewTournament();
+}
+
+// Create new tournament
+async function createNewTournament(): Promise<Tournament> {
+  const now = new Date();
+  const { week, year } = getWeekNumber(now);
+  const monday = getMondayOfWeek(now);
+  const sunday = getSundayOfWeek(now);
+
+  const newTournament: Tournament = {
+    id: `tournament_${year}_w${week}`,
+    weekNumber: week,
+    year,
+    startDate: monday.toISOString(),
+    endDate: sunday.toISOString(),
+    status: 'active',
+    leaderboard: generateMockTournamentLeaderboard(20),
+    prizes: TOURNAMENT_PRIZES,
+  };
+
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.TOURNAMENT, JSON.stringify(newTournament));
+  } catch (error) {
+    console.error('Error saving tournament:', error);
+  }
+
+  return newTournament;
+}
+
+// Generate mock tournament leaderboard
+function generateMockTournamentLeaderboard(count: number): TournamentEntry[] {
+  const names = [
+    'TournamentKing', 'WeeklyChamp', 'CompetitiveAce', 'RankClimber', 'ScoreHunter',
+    'LeaderboardPro', 'WeeklyWarrior', 'TourneyBeast', 'ChampionSeeker', 'TopTierPlayer',
+    'EliteCompetitor', 'RankingLegend', 'WeeklyHero', 'PointMaster', 'TournamentStar',
+  ];
+
+  const entries: TournamentEntry[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const baseScore = 5000;
+    const variance = 3000;
+
+    entries.push({
+      rank: i + 1,
+      userId: `mock_tournament_${i}`,
+      displayName: names[i % names.length] + (i >= names.length ? i : ''),
+      avatarEmoji: AVATAR_EMOJIS[i % AVATAR_EMOJIS.length],
+      score: Math.floor(baseScore + Math.random() * variance * (count - i) / count),
+      date: new Date().toISOString(),
+      weekScore: Math.floor(baseScore + Math.random() * variance * (count - i) / count),
+    });
+  }
+
+  return entries.sort((a, b) => b.weekScore - a.weekScore).map((e, i) => ({ ...e, rank: i + 1 }));
+}
+
+// Submit score to tournament
+export async function submitTournamentScore(score: number): Promise<{ rank: number; improvement: number }> {
+  const tournament = await getCurrentTournament();
+  const profile = await getUserProfile();
+
+  const existingIndex = tournament.leaderboard.findIndex(e => e.userId === profile.id);
+  const previousRank = existingIndex !== -1 ? tournament.leaderboard[existingIndex].rank : tournament.leaderboard.length + 1;
+
+  if (existingIndex !== -1) {
+    // Add to existing score
+    tournament.leaderboard[existingIndex].weekScore += score;
+    tournament.leaderboard[existingIndex].score = tournament.leaderboard[existingIndex].weekScore;
+    tournament.leaderboard[existingIndex].date = new Date().toISOString();
+  } else {
+    // Create new entry
+    const newEntry: TournamentEntry = {
+      rank: 0,
+      userId: profile.id,
+      displayName: profile.displayName,
+      avatarEmoji: profile.avatarEmoji,
+      score: score,
+      date: new Date().toISOString(),
+      weekScore: score,
+    };
+    tournament.leaderboard.push(newEntry);
+  }
+
+  // Re-sort and update ranks
+  tournament.leaderboard.sort((a, b) => b.weekScore - a.weekScore);
+  tournament.leaderboard = tournament.leaderboard.map((e, i) => ({ ...e, rank: i + 1 }));
+
+  // Keep top 100
+  tournament.leaderboard = tournament.leaderboard.slice(0, 100);
+
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.TOURNAMENT, JSON.stringify(tournament));
+  } catch (error) {
+    console.error('Error saving tournament:', error);
+  }
+
+  const newRank = tournament.leaderboard.findIndex(e => e.userId === profile.id) + 1;
+  const improvement = previousRank - newRank;
+
+  return { rank: newRank, improvement };
+}
+
+// Archive finished tournament
+async function archiveTournament(tournament: Tournament): Promise<void> {
+  tournament.status = 'ended';
+
+  try {
+    const historyData = await AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENT_HISTORY);
+    const history: TournamentHistory = historyData
+      ? JSON.parse(historyData)
+      : { tournaments: [], userBestRank: 999, userTotalWins: 0, userTotalPrizes: [] };
+
+    history.tournaments.unshift(tournament);
+
+    // Keep only last 10 tournaments
+    history.tournaments = history.tournaments.slice(0, 10);
+
+    // Update user stats
+    const profile = await getUserProfile();
+    const userEntry = tournament.leaderboard.find(e => e.userId === profile.id);
+
+    if (userEntry) {
+      if (userEntry.rank < history.userBestRank) {
+        history.userBestRank = userEntry.rank;
+      }
+      if (userEntry.rank === 1) {
+        history.userTotalWins += 1;
+      }
+
+      // Award prizes
+      const prize = TOURNAMENT_PRIZES.find(p => p.rank === userEntry.rank);
+      if (prize) {
+        history.userTotalPrizes.push(prize);
+      }
+    }
+
+    await AsyncStorage.setItem(STORAGE_KEYS.TOURNAMENT_HISTORY, JSON.stringify(history));
+  } catch (error) {
+    console.error('Error archiving tournament:', error);
+  }
+}
+
+// Get tournament history
+export async function getTournamentHistory(): Promise<TournamentHistory> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.TOURNAMENT_HISTORY);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Error loading tournament history:', error);
+  }
+
+  return {
+    tournaments: [],
+    userBestRank: 999,
+    userTotalWins: 0,
+    userTotalPrizes: [],
+  };
+}
+
+// Get time until tournament ends
+export function getTimeUntilTournamentEnd(tournament: Tournament): {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  isEnding: boolean;
+} {
+  const now = new Date();
+  const end = new Date(tournament.endDate);
+  end.setHours(23, 59, 59, 999); // End of Sunday
+
+  const diff = end.getTime() - now.getTime();
+
+  if (diff <= 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isEnding: true };
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds, isEnding: days === 0 && hours < 6 };
+}
+
+// Check if user is in prize range
+export function getUserPrize(rank: number): TournamentPrize | null {
+  return TOURNAMENT_PRIZES.find(p => p.rank === rank) || null;
 }

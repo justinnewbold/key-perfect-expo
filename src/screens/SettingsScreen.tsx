@@ -11,16 +11,18 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, SPACING, BORDER_RADIUS, INSTRUMENTS } from '../utils/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
+import InstrumentSelector from '../components/InstrumentSelector';
+import NotificationSettings from '../components/NotificationSettings';
 import { Instrument } from '../types';
 import { clearAllData } from '../utils/storage';
+import { restorePurchases, getOwnedInstrumentPacks } from '../services/payments';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { settings, updateSettings, stats } = useApp();
-  const [showInstruments, setShowInstruments] = useState(false);
 
   const handleVolumeChange = (increase: boolean) => {
     const newVolume = increase 
@@ -29,9 +31,58 @@ export default function SettingsScreen() {
     updateSettings({ volume: newVolume });
   };
 
-  const handleInstrumentSelect = (instrument: Instrument) => {
-    updateSettings({ instrument });
-    setShowInstruments(false);
+  const handleInstrumentSelect = (instrumentId: string) => {
+    updateSettings({ instrument: instrumentId as Instrument });
+  };
+
+  const handlePurchasePack = (packId: string) => {
+    // Add the pack to owned packs
+    const currentPacks = settings.ownedInstrumentPacks || ['free'];
+    if (!currentPacks.includes(packId)) {
+      updateSettings({
+        ownedInstrumentPacks: [...currentPacks, packId],
+      });
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    Alert.alert(
+      'Restore Purchases',
+      'This will restore all your previous purchases.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          onPress: async () => {
+            try {
+              const result = await restorePurchases();
+
+              if (result.success) {
+                // Update owned packs from payment service
+                const ownedPacks = await getOwnedInstrumentPacks();
+                updateSettings({ ownedInstrumentPacks: ownedPacks });
+
+                Alert.alert(
+                  'Success',
+                  result.restoredCount > 0
+                    ? `Restored ${result.restoredCount} purchase(s)!`
+                    : 'No previous purchases found.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                Alert.alert(
+                  'Error',
+                  result.error || 'Unable to restore purchases. Please try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            } catch (error) {
+              Alert.alert('Error', 'An unexpected error occurred.', [{ text: 'OK' }]);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleResetProgress = () => {
@@ -56,8 +107,6 @@ export default function SettingsScreen() {
       ]
     );
   };
-
-  const selectedInstrument = INSTRUMENTS.find(i => i.id === settings.instrument);
 
   return (
     <LinearGradient
@@ -109,43 +158,43 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Instrument */}
-          <TouchableOpacity 
-            style={styles.settingRow}
-            onPress={() => setShowInstruments(!showInstruments)}
-          >
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingIcon}>{selectedInstrument?.icon}</Text>
-              <Text style={styles.settingLabel}>Instrument</Text>
-            </View>
-            <View style={styles.settingValue}>
-              <Text style={styles.settingValueText}>{selectedInstrument?.name}</Text>
-              <Ionicons 
-                name={showInstruments ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color={COLORS.textSecondary} 
-              />
-            </View>
-          </TouchableOpacity>
-
-          {showInstruments && (
-            <View style={styles.instrumentGrid}>
-              {INSTRUMENTS.map((instrument) => (
-                <TouchableOpacity
-                  key={instrument.id}
-                  style={[
-                    styles.instrumentCard,
-                    settings.instrument === instrument.id && styles.instrumentSelected,
-                  ]}
-                  onPress={() => handleInstrumentSelect(instrument.id as Instrument)}
-                >
-                  <Text style={styles.instrumentIcon}>{instrument.icon}</Text>
-                  <Text style={styles.instrumentName}>{instrument.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </GlassCard>
+
+        {/* Premium Instrument Packs */}
+        <GlassCard style={styles.section}>
+          <View style={styles.premiumHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>🎵 Instrument Packs</Text>
+              <Text style={styles.premiumSubtitle}>
+                Unlock premium instruments for enhanced ear training
+              </Text>
+            </View>
+            <View style={styles.ownedBadge}>
+              <Text style={styles.ownedBadgeText}>
+                {(settings.ownedInstrumentPacks || ['free']).length} Owned
+              </Text>
+            </View>
+          </View>
+
+          <InstrumentSelector
+            selectedInstrument={settings.instrument || 'piano_synth'}
+            ownedPacks={settings.ownedInstrumentPacks || ['free']}
+            onSelectInstrument={handleInstrumentSelect}
+            onPurchasePack={handlePurchasePack}
+          />
+
+          {/* Restore Purchases Button */}
+          <TouchableOpacity
+            style={styles.restoreButton}
+            onPress={handleRestorePurchases}
+          >
+            <Ionicons name="refresh" size={18} color={COLORS.info} />
+            <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+          </TouchableOpacity>
+        </GlassCard>
+
+        {/* Notifications */}
+        <NotificationSettings />
 
         {/* Sound Customization */}
         <GlassCard style={styles.section}>
@@ -489,34 +538,45 @@ const styles = StyleSheet.create({
     minWidth: 50,
     textAlign: 'center',
   },
-  instrumentGrid: {
+  premiumHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
   },
-  instrumentCard: {
-    width: '30%',
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.sm,
-    alignItems: 'center',
-  },
-  instrumentSelected: {
-    backgroundColor: COLORS.xpGradientStart + '40',
-    borderWidth: 1,
-    borderColor: COLORS.xpGradientStart,
-  },
-  instrumentIcon: {
-    fontSize: 24,
-  },
-  instrumentName: {
-    color: COLORS.textPrimary,
+  premiumSubtitle: {
+    color: COLORS.textMuted,
     fontSize: 12,
-    marginTop: SPACING.xs,
+    marginTop: 4,
+  },
+  ownedBadge: {
+    backgroundColor: COLORS.success + '20',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  ownedBadgeText: {
+    color: COLORS.success,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.info + '20',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.info + '40',
+  },
+  restoreButtonText: {
+    color: COLORS.info,
+    fontSize: 14,
+    fontWeight: '600',
   },
   toggleButton: {
     backgroundColor: COLORS.cardBackground,
