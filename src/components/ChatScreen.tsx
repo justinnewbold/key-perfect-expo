@@ -146,6 +146,10 @@ export default function ChatScreen({ friendId, friendName, friendAvatar }: ChatS
         renderItem={renderMessage}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+        windowSize={10}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={true}
+        initialNumToRender={20}
       />
 
       {/* Quick Emojis */}

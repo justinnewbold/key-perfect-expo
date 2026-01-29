@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
+import { SkeletonCard, SkeletonList } from '../components/SkeletonLoader';
+import EmptyState from '../components/EmptyState';
 import {
   getAllEvents,
   getActiveEvents,
@@ -19,6 +21,7 @@ export default function EventsCalendarScreen() {
   const [activeEvents, setActiveEvents] = useState<Event[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadEvents();
@@ -33,6 +36,7 @@ export default function EventsCalendarScreen() {
     setActiveEvents(active);
     setUpcomingEvents(upcoming);
     setRefreshing(false);
+    setLoading(false);
   };
 
   const handleJoinEvent = async (event: Event) => {
@@ -49,7 +53,7 @@ export default function EventsCalendarScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadEvents} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing && !loading} onRefresh={loadEvents} tintColor={COLORS.primary} />}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -59,6 +63,14 @@ export default function EventsCalendarScreen() {
           <Text style={styles.title}>Live Events</Text>
           <View style={{ width: 24 }} />
         </View>
+
+        {loading ? (
+          <>
+            <Text style={styles.loadingText}>Loading events...</Text>
+            <SkeletonList count={3} />
+          </>
+        ) : (
+          <>
 
         {/* Active Events */}
         {activeEvents.length > 0 && (
@@ -97,11 +109,14 @@ export default function EventsCalendarScreen() {
         )}
 
         {activeEvents.length === 0 && upcomingEvents.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={64} color={COLORS.textMuted} />
-            <Text style={styles.emptyText}>No events scheduled</Text>
-            <Text style={styles.emptySubtext}>Check back soon for new events!</Text>
-          </View>
+          <EmptyState
+            icon="calendar-outline"
+            title="No Events Right Now"
+            description="New exciting events and tournaments are coming soon. Check back later to join the competition!"
+            variant="default"
+          />
+        )}
+        </>
         )}
       </ScrollView>
     </LinearGradient>
@@ -404,5 +419,11 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     marginTop: SPACING.xs,
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
   },
 });

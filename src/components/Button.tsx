@@ -7,6 +7,11 @@ import {
   TextStyle,
   ActivityIndicator
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { safeHaptics, ImpactFeedbackStyle } from '../utils/haptics';
 import { COLORS, BORDER_RADIUS, SPACING, SHADOWS } from '../utils/theme';
 
@@ -39,6 +44,28 @@ export default function Button({
   accessibilityLabel,
   accessibilityHint,
 }: ButtonProps) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.95, {
+      damping: 15,
+      stiffness: 150,
+    });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, {
+      damping: 15,
+      stiffness: 150,
+    });
+  };
+
   const handlePress = () => {
     if (haptic) {
       safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
@@ -100,40 +127,46 @@ export default function Button({
   return (
     <TouchableOpacity
       onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={1}
       accessible={true}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: disabled || loading }}
-      style={[
-        styles.button,
-        variantStyles[variant],
-        sizeStyles[size].button,
-        disabled && styles.disabled,
-        SHADOWS.small,
-        style,
-      ]}
     >
-      {loading ? (
-        <ActivityIndicator color={variantTextStyles[variant].color} />
-      ) : (
-        <>
-          {icon}
-          <Text
-            style={[
-              styles.text,
-              variantTextStyles[variant],
-              sizeStyles[size].text,
-              icon && styles.textWithIcon,
-              textStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        </>
-      )}
+      <Animated.View
+        style={[
+          styles.button,
+          variantStyles[variant],
+          sizeStyles[size].button,
+          disabled && styles.disabled,
+          SHADOWS.small,
+          animatedStyle,
+          style,
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color={variantTextStyles[variant].color} />
+        ) : (
+          <>
+            {icon}
+            <Text
+              style={[
+                styles.text,
+                variantTextStyles[variant],
+                sizeStyles[size].text,
+                icon && styles.textWithIcon,
+                textStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          </>
+        )}
+      </Animated.View>
     </TouchableOpacity>
   );
 }

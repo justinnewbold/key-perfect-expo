@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
+import EmptyState from '../components/EmptyState';
 import {
   getFriends,
   getFriendRequests,
@@ -317,11 +318,12 @@ export default function FriendsScreen() {
         )}
 
         {friends.length === 0 && !refreshing && (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color={COLORS.textMuted} />
-            <Text style={styles.emptyText}>No friends yet</Text>
-            <Text style={styles.emptySubtext}>Search for users to add friends!</Text>
-          </View>
+          <EmptyState
+            icon="people-outline"
+            title="No Friends Yet"
+            description="Search for other musicians and add them as friends to compete and share your progress!"
+            variant="subtle"
+          />
         )}
       </ScrollView>
 
