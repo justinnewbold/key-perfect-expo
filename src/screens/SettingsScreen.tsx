@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
+import { useToast } from '../components/ToastNotification';
 import InstrumentSelector from '../components/InstrumentSelector';
 import NotificationSettings from '../components/NotificationSettings';
 import { Instrument } from '../types';
@@ -23,6 +24,7 @@ import { restorePurchases, getOwnedInstrumentPacks } from '../services/payments'
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { settings, updateSettings, stats } = useApp();
+  const toast = useToast();
 
   const handleVolumeChange = (increase: boolean) => {
     const newVolume = increase 
@@ -33,6 +35,7 @@ export default function SettingsScreen() {
 
   const handleInstrumentSelect = (instrumentId: string) => {
     updateSettings({ instrument: instrumentId as Instrument });
+    toast.success('Instrument changed!');
   };
 
   const handlePurchasePack = (packId: string) => {

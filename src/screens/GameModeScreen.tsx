@@ -17,6 +17,8 @@ import GlassCard from '../components/GlassCard';
 import Button from '../components/Button';
 import ComboIndicator from '../components/ComboIndicator';
 import GameProgressBar from '../components/GameProgressBar';
+import VoiceEncouragement, { getEncouragementMessage } from '../components/VoiceEncouragement';
+import CelebrationConfetti from '../components/CelebrationConfetti';
 import {
   GAME_MODES,
   ALL_NOTES,
@@ -164,6 +166,11 @@ export default function GameModeScreen() {
   const [reverseState, setReverseState] = useState<ReverseGameState | null>(null);
   const [reverseAnswerState, setReverseAnswerState] = useState<'default' | 'correct' | 'incorrect'>('default');
 
+  // Voice Encouragement & Celebration
+  const [encouragementMessage, setEncouragementMessage] = useState<string | null>(null);
+  const [encouragementType, setEncouragementType] = useState<'success' | 'combo' | 'milestone' | 'perfect'>('success');
+  const [showVictoryConfetti, setShowVictoryConfetti] = useState(false);
+
   // Track all timeouts for cleanup
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -310,6 +317,17 @@ export default function GameModeScreen() {
       // Apply combo multiplier to XP
       const xpEarned = calculateComboXP(XP_PER_CORRECT, newCombo);
       await addXP(xpEarned);
+
+      // Show encouragement based on combo
+      if (newCombo >= 3) {
+        const message = getEncouragementMessage('combo', newCombo);
+        setEncouragementMessage(message);
+        setEncouragementType('combo');
+      } else {
+        const message = getEncouragementMessage('success');
+        setEncouragementMessage(message);
+        setEncouragementType('success');
+      }
     } else {
       safeHaptics.notificationAsync(NotificationFeedbackType.Error);
     }
@@ -999,13 +1017,15 @@ export default function GameModeScreen() {
   // Render Speed Mode
   if (modeId === 'speed' && speedState) {
     if (speedState.timeLeft === 0) {
+      const isNewHighScore = speedState.score > stats.speedModeHighScore;
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+          <CelebrationConfetti visible={isNewHighScore} type="victory" />
           <View style={styles.resultContainer}>
             <Text style={styles.resultEmoji}>⏱️</Text>
             <Text style={styles.resultTitle}>Time's Up!</Text>
             <Text style={styles.resultScore}>Score: {speedState.score}</Text>
-            {speedState.score > stats.speedModeHighScore && (
+            {isNewHighScore && (
               <Text style={styles.newHighScore}>New High Score!</Text>
             )}
             <Button
@@ -1029,6 +1049,11 @@ export default function GameModeScreen() {
 
     return (
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
+        <VoiceEncouragement
+          message={encouragementMessage}
+          type={encouragementType}
+          onComplete={() => setEncouragementMessage(null)}
+        />
         <View style={styles.gameContent}>
           <View style={styles.header}>
             <TouchableOpacity onPress={endSpeedMode}>

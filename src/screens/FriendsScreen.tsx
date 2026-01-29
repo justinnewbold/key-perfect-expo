@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
 import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/ToastNotification';
 import {
   getFriends,
   getFriendRequests,
@@ -35,6 +36,7 @@ import {
 
 export default function FriendsScreen() {
   const navigation = useNavigation<any>();
+  const toast = useToast();
   const userId = 'current_user'; // Mock
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
@@ -84,20 +86,28 @@ export default function FriendsScreen() {
   const handleAcceptRequest = async (requestId: string) => {
     const success = await acceptFriendRequest(userId, requestId);
     if (success) {
+      toast.success('Friend request accepted!');
       loadData();
+    } else {
+      toast.error('Failed to accept friend request');
     }
   };
 
   const handleDeclineRequest = async (requestId: string) => {
     const success = await declineFriendRequest(userId, requestId);
     if (success) {
+      toast.info('Friend request declined');
       loadData();
+    } else {
+      toast.error('Failed to decline friend request');
     }
   };
 
   const handleSendRequest = async (toUserId: string) => {
     const success = await sendFriendRequest(userId, toUserId);
     if (success) {
+      toast.success('Friend request sent!');
+
       setSearchQuery('');
       setSearchResults([]);
     }
