@@ -16,6 +16,7 @@ import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/ToastNotification';
+import SwipeableCard from '../components/SwipeableCard';
 import {
   getFriends,
   getFriendRequests,
@@ -231,32 +232,49 @@ export default function FriendsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Friend Requests ({friendRequests.length})</Text>
             {friendRequests.map(request => (
-              <GlassCard key={request.id} style={styles.requestCard}>
-                <View style={styles.friendInfo}>
-                  <Text style={styles.friendAvatar}>{request.avatar || '👤'}</Text>
-                  <View style={styles.friendDetails}>
-                    <Text style={styles.friendName}>{request.displayName}</Text>
-                    <Text style={styles.friendUsername}>@{request.username}</Text>
-                    {request.message && (
-                      <Text style={styles.requestMessage}>{request.message}</Text>
-                    )}
+              <SwipeableCard
+                key={request.id}
+                style={styles.requestCard}
+                rightAction={{
+                  text: 'Accept',
+                  icon: 'checkmark',
+                  color: COLORS.success,
+                  onPress: () => handleAcceptRequest(request.id),
+                }}
+                leftAction={{
+                  text: 'Decline',
+                  icon: 'close',
+                  color: COLORS.error,
+                  onPress: () => handleDeclineRequest(request.id),
+                }}
+              >
+                <GlassCard style={styles.requestCardInner}>
+                  <View style={styles.friendInfo}>
+                    <Text style={styles.friendAvatar}>{request.avatar || '👤'}</Text>
+                    <View style={styles.friendDetails}>
+                      <Text style={styles.friendName}>{request.displayName}</Text>
+                      <Text style={styles.friendUsername}>@{request.username}</Text>
+                      {request.message && (
+                        <Text style={styles.requestMessage}>{request.message}</Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-                <View style={styles.requestActions}>
-                  <TouchableOpacity
-                    style={styles.acceptButton}
-                    onPress={() => handleAcceptRequest(request.id)}
-                  >
-                    <Ionicons name="checkmark" size={20} color={COLORS.textPrimary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.declineButton}
-                    onPress={() => handleDeclineRequest(request.id)}
-                  >
-                    <Ionicons name="close" size={20} color={COLORS.textPrimary} />
-                  </TouchableOpacity>
-                </View>
-              </GlassCard>
+                  <View style={styles.requestActions}>
+                    <TouchableOpacity
+                      style={styles.acceptButton}
+                      onPress={() => handleAcceptRequest(request.id)}
+                    >
+                      <Ionicons name="checkmark" size={20} color={COLORS.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.declineButton}
+                      onPress={() => handleDeclineRequest(request.id)}
+                    >
+                      <Ionicons name="close" size={20} color={COLORS.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+                </GlassCard>
+              </SwipeableCard>
             ))}
           </View>
         )}
@@ -414,46 +432,62 @@ interface FriendCardProps {
 
 function FriendCard({ friend, onChallenge, onGift, onMessage }: FriendCardProps) {
   return (
-    <GlassCard style={styles.friendCard}>
-      <View style={styles.friendInfo}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.friendAvatar}>{friend.avatar || '👤'}</Text>
-          <View
-            style={[
-              styles.onlineIndicator,
-              { backgroundColor: friend.onlineStatus === 'online' ? COLORS.success : COLORS.textMuted },
-            ]}
-          />
-        </View>
-        <View style={styles.friendDetails}>
-          <Text style={styles.friendName}>{friend.displayName}</Text>
-          <Text style={styles.friendUsername}>@{friend.username}</Text>
-          <View style={styles.friendStatsRow}>
-            <Text style={styles.friendStat}>Lv {friend.level}</Text>
-            <Text style={styles.friendStat}>•</Text>
-            <Text style={styles.friendStat}>{friend.gamesPlayed} games</Text>
-            {friend.winRate > 0 && (
-              <>
-                <Text style={styles.friendStat}>•</Text>
-                <Text style={styles.friendStat}>{Math.round(friend.winRate)}% WR</Text>
-              </>
-            )}
+    <SwipeableCard
+      style={styles.friendCard}
+      rightAction={{
+        text: 'Challenge',
+        icon: 'game-controller',
+        color: COLORS.primary,
+        onPress: onChallenge,
+      }}
+      leftAction={{
+        text: 'Message',
+        icon: 'chatbubble',
+        color: COLORS.info,
+        onPress: onMessage,
+      }}
+    >
+      <GlassCard style={styles.friendCardInner}>
+        <View style={styles.friendInfo}>
+          <View style={styles.avatarContainer}>
+            <Text style={styles.friendAvatar}>{friend.avatar || '👤'}</Text>
+            <View
+              style={[
+                styles.onlineIndicator,
+                { backgroundColor: friend.onlineStatus === 'online' ? COLORS.success : COLORS.textMuted },
+              ]}
+            />
+          </View>
+          <View style={styles.friendDetails}>
+            <Text style={styles.friendName}>{friend.displayName}</Text>
+            <Text style={styles.friendUsername}>@{friend.username}</Text>
+            <View style={styles.friendStatsRow}>
+              <Text style={styles.friendStat}>Lv {friend.level}</Text>
+              <Text style={styles.friendStat}>•</Text>
+              <Text style={styles.friendStat}>{friend.gamesPlayed} games</Text>
+              {friend.winRate > 0 && (
+                <>
+                  <Text style={styles.friendStat}>•</Text>
+                  <Text style={styles.friendStat}>{Math.round(friend.winRate)}% WR</Text>
+                </>
+              )}
+            </View>
           </View>
         </View>
-      </View>
 
-      <View style={styles.friendActions}>
-        <TouchableOpacity style={styles.actionButton} onPress={onChallenge}>
-          <Ionicons name="game-controller" size={20} color={COLORS.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onGift}>
-          <Ionicons name="gift" size={20} color={COLORS.warning} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onMessage}>
-          <Ionicons name="chatbubble" size={20} color={COLORS.info} />
-        </TouchableOpacity>
-      </View>
-    </GlassCard>
+        <View style={styles.friendActions}>
+          <TouchableOpacity style={styles.actionButton} onPress={onChallenge}>
+            <Ionicons name="game-controller" size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={onGift}>
+            <Ionicons name="gift" size={20} color={COLORS.warning} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton} onPress={onMessage}>
+            <Ionicons name="chatbubble" size={20} color={COLORS.info} />
+          </TouchableOpacity>
+        </View>
+      </GlassCard>
+    </SwipeableCard>
   );
 }
 
@@ -540,8 +574,10 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   friendCard: {
-    padding: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  friendCardInner: {
+    padding: SPACING.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -621,8 +657,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   requestCard: {
-    padding: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  requestCardInner: {
+    padding: SPACING.md,
   },
   requestMessage: {
     color: COLORS.textSecondary,

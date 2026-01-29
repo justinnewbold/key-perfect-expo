@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Dimensions } from 'react-native';
+import { PanGestureHandler } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
@@ -96,7 +97,9 @@ interface ToastItemProps {
 
 function ToastItem({ toast, onDismiss }: ToastItemProps) {
   const translateY = useRef(new Animated.Value(-100)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const dismissTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     // Slide in
@@ -115,23 +118,74 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
     ]).start();
 
     // Slide out before auto-dismiss
-    const dismissTimeout = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: -100,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => onDismiss());
+    dismissTimeoutRef.current = setTimeout(() => {
+      handleDismiss();
     }, (toast.duration || 3000) - 300);
 
-    return () => clearTimeout(dismissTimeout);
+    return () => {
+      if (dismissTimeoutRef.current) {
+        clearTimeout(dismissTimeoutRef.current);
+      }
+    };
   }, []);
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => onDismiss());
+  };
+
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationX: translateX } }],
+    { useNativeDriver: true }
+  );
+
+  const onHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === 4) { // ACTIVE state
+      const { translationX } = event.nativeEvent;
+
+      // If swiped significantly left or right, dismiss
+      if (Math.abs(translationX) > 100) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // Clear auto-dismiss timeout
+        if (dismissTimeoutRef.current) {
+          clearTimeout(dismissTimeoutRef.current);
+        }
+
+        // Animate out in the swipe direction
+        Animated.parallel([
+          Animated.timing(translateX, {
+            toValue: translationX > 0 ? width : -width,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => onDismiss());
+      } else {
+        // Snap back to original position
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 40,
+        }).start();
+      }
+    }
+  };
 
   const getToastColor = () => {
     switch (toast.type) {
@@ -166,24 +220,30 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
   const color = getToastColor();
 
   return (
-    <Animated.View
-      style={[
-        styles.toast,
-        {
-          transform: [{ translateY }],
-          opacity,
-          borderLeftColor: color,
-        },
-      ]}
+    <PanGestureHandler
+      onGestureEvent={onGestureEvent}
+      onHandlerStateChange={onHandlerStateChange}
+      activeOffsetX={[-10, 10]}
     >
-      <View style={[styles.toastIconContainer, { backgroundColor: color + '20' }]}>
-        <Ionicons name={getToastIcon() as any} size={20} color={color} />
-      </View>
-      <Text style={styles.toastMessage}>{toast.message}</Text>
-      <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Ionicons name="close" size={18} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-    </Animated.View>
+      <Animated.View
+        style={[
+          styles.toast,
+          {
+            transform: [{ translateY }, { translateX }],
+            opacity,
+            borderLeftColor: color,
+          },
+        ]}
+      >
+        <View style={[styles.toastIconContainer, { backgroundColor: color + '20' }]}>
+          <Ionicons name={getToastIcon() as any} size={20} color={color} />
+        </View>
+        <Text style={styles.toastMessage}>{toast.message}</Text>
+        <TouchableOpacity onPress={handleDismiss} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="close" size={18} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </Animated.View>
+    </PanGestureHandler>
   );
 }
 
