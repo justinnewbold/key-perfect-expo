@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import BottomSheetComponent from '@gorhom/bottom-sheet';
+import * as Haptics from 'expo-haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
@@ -13,6 +15,8 @@ import EnhancedAICoach from '../components/EnhancedAICoach';
 import TournamentBanner from '../components/TournamentBanner';
 import StreakDashboard from '../components/StreakDashboard';
 import OfflineIndicator from '../components/OfflineIndicator';
+import GameModeSelector from '../components/GameModeSelector';
+import LongPressMenu from '../components/LongPressMenu';
 import { GAME_MODES, LEVELS, WeakArea } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -20,6 +24,8 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const { stats, levelInfo } = useApp();
+  const gameModeSheetRef = useRef<BottomSheetComponent>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const quickStats = [
     { 
@@ -65,6 +71,27 @@ export default function HomeScreen() {
   // Memoize the sliced game modes to prevent unnecessary re-renders
   const quickGameModes = useMemo(() => GAME_MODES.slice(0, 4), []);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Simulate refresh - in real app, would reload data
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setRefreshing(false);
+  };
+
+  const handleSelectGameMode = (modeId: string) => {
+    if (modeId === 'campaign') {
+      navigation.navigate('Levels');
+    } else {
+      navigation.navigate('GameMode', { mode: modeId });
+    }
+  };
+
+  const handleQuickPlay = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    gameModeSheetRef.current?.snapToIndex(0);
+  };
+
   return (
     <LinearGradient
       colors={[COLORS.gradientStart, COLORS.gradientEnd]}
@@ -78,6 +105,14 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
         bounces={true}
         overScrollMode="always"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -295,19 +330,41 @@ export default function HomeScreen() {
             contentContainerStyle={styles.modesScroll}
           >
             {quickGameModes.map((mode) => (
-              <TouchableOpacity
+              <LongPressMenu
                 key={mode.id}
-                style={[styles.modeCard, { backgroundColor: mode.color + '30' }]}
-                onPress={() => navigation.navigate('GameMode', { mode: mode.id })}
-                accessibilityLabel={`${mode.name} mode`}
-                accessibilityRole="button"
-                accessibilityHint={mode.description}
+                actions={[
+                  {
+                    icon: 'play',
+                    label: 'Play Now',
+                    onPress: () => navigation.navigate('GameMode', { mode: mode.id }),
+                  },
+                  {
+                    icon: 'trophy',
+                    label: 'View Leaderboard',
+                    onPress: () => navigation.navigate('Leaderboard'),
+                  },
+                  {
+                    icon: 'information-circle',
+                    label: 'About Mode',
+                    onPress: () => {
+                      // Could show a modal with mode details
+                    },
+                  },
+                ]}
               >
-                <View style={[styles.modeIcon, { backgroundColor: mode.color + '50' }]}>
-                  <Ionicons name={mode.icon as any} size={24} color={mode.color} />
-                </View>
-                <Text style={styles.modeName}>{mode.name}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modeCard, { backgroundColor: mode.color + '30' }]}
+                  onPress={() => navigation.navigate('GameMode', { mode: mode.id })}
+                  accessibilityLabel={`${mode.name} mode`}
+                  accessibilityRole="button"
+                  accessibilityHint={mode.description}
+                >
+                  <View style={[styles.modeIcon, { backgroundColor: mode.color + '50' }]}>
+                    <Ionicons name={mode.icon as any} size={24} color={mode.color} />
+                  </View>
+                  <Text style={styles.modeName}>{mode.name}</Text>
+                </TouchableOpacity>
+              </LongPressMenu>
             ))}
           </ScrollView>
         </GlassCard>
@@ -315,6 +372,29 @@ export default function HomeScreen() {
         {/* Bottom spacing */}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Floating Action Button */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleQuickPlay}
+        activeOpacity={0.9}
+        accessibilityLabel="Quick Play"
+        accessibilityRole="button"
+        accessibilityHint="Open quick play menu"
+      >
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primary + 'CC']}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="play" size={28} color={COLORS.textPrimary} />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* Game Mode Selector Bottom Sheet */}
+      <GameModeSelector
+        ref={gameModeSheetRef}
+        onSelectMode={handleSelectGameMode}
+      />
     </LinearGradient>
   );
 }
@@ -498,5 +578,21 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 90,
+    right: SPACING.lg,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    ...SHADOWS.large,
+  },
+  fabGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
