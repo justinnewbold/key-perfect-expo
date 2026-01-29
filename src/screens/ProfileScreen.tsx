@@ -26,6 +26,7 @@ import {
   AchievementTier,
 } from '../services/progression';
 import { useUserStats } from '../hooks/useUserStats';
+import AnimatedCounter, { AnimatedPercentageCounter } from '../components/AnimatedCounter';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -135,9 +136,9 @@ export default function ProfileScreen() {
           <View style={styles.xpContainer}>
             <View style={styles.xpHeader}>
               <Text style={styles.xpLabel}>
-                {progression.level.currentXP} / {progression.level.xpToNextLevel} XP
+                <AnimatedCounter value={progression.level.currentXP} decimals={0} style={{ color: COLORS.textSecondary, fontSize: 14 }} /> / {progression.level.xpToNextLevel} XP
               </Text>
-              <Text style={styles.xpPercentage}>{Math.round(levelProgress)}%</Text>
+              <AnimatedPercentageCounter value={Math.round(levelProgress)} style={styles.xpPercentage} />
             </View>
             <View style={styles.xpBarContainer}>
               <View style={[styles.xpBar, { width: `${levelProgress}%` }]} />
@@ -147,19 +148,19 @@ export default function ProfileScreen() {
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{progression.level.totalXP}</Text>
+              <AnimatedCounter value={progression.level.totalXP} decimals={0} style={styles.statValue} />
               <Text style={styles.statLabel}>Total XP</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{progressStats.unlockedAchievements}</Text>
+              <AnimatedCounter value={progressStats.unlockedAchievements} decimals={0} style={styles.statValue} />
               <Text style={styles.statLabel}>Achievements</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{progressStats.unlockedTitles}</Text>
+              <AnimatedCounter value={progressStats.unlockedTitles} decimals={0} style={styles.statValue} />
               <Text style={styles.statLabel}>Titles</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{progressStats.completedQuests}</Text>
+              <AnimatedCounter value={progressStats.completedQuests} decimals={0} style={styles.statValue} />
               <Text style={styles.statLabel}>Quests Done</Text>
             </View>
           </View>

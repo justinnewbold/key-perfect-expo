@@ -10,6 +10,7 @@ import Navigation from './src/navigation/Navigation';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import AchievementToast from './src/components/AchievementToast';
+import { ToastProvider } from './src/components/ToastNotification';
 import { COLORS } from './src/utils/theme';
 import { isOnboardingCompleted, markOnboardingCompleted } from './src/utils/storage';
 
@@ -91,8 +92,10 @@ export default function App() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <AppProvider>
-            <StatusBar style="light" />
-            <AppContent />
+            <ToastProvider>
+              <StatusBar style="light" />
+              <AppContent />
+            </ToastProvider>
           </AppProvider>
         </ErrorBoundary>
       </SafeAreaProvider>

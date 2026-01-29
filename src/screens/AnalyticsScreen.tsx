@@ -6,6 +6,8 @@ import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useApp } from '../context/AppContext';
 import GlassCard from '../components/GlassCard';
+import { SkeletonCard, SkeletonList } from '../components/SkeletonLoader';
+import { useToast } from '../components/ToastNotification';
 import {
   getAnalyticsDashboard,
   AnalyticsDashboard,
@@ -20,6 +22,7 @@ const { width } = Dimensions.get('window');
 export default function AnalyticsScreen() {
   const navigation = useNavigation<any>();
   const { stats } = useApp();
+  const toast = useToast();
   const [dashboard, setDashboard] = useState<AnalyticsDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,8 +35,10 @@ export default function AnalyticsScreen() {
       setLoading(true);
       const data = await getAnalyticsDashboard(stats);
       setDashboard(data);
+      toast.success('Analytics updated!');
     } catch (error) {
       console.error('Error loading analytics:', error);
+      toast.error('Failed to load analytics. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -42,9 +47,17 @@ export default function AnalyticsScreen() {
   if (loading || !dashboard) {
     return (
       <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
-        <View style={styles.loadingContainer}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Your Analytics</Text>
+            <View style={{ width: 24 }} />
+          </View>
           <Text style={styles.loadingText}>Analyzing your progress...</Text>
-        </View>
+          <SkeletonList count={5} />
+        </ScrollView>
       </LinearGradient>
     );
   }

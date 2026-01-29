@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import GlassCard from '../components/GlassCard';
+import { SkeletonCard, SkeletonList } from '../components/SkeletonLoader';
 import {
   generateLearningPath,
   getLearningPath,
@@ -37,6 +38,7 @@ export default function LearningPathScreen() {
   const [recommendation, setRecommendation] = useState<AICoachRecommendation | null>(null);
   const [quickSessions, setQuickSessions] = useState<PracticeRecommendation[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<SkillCategory | 'all'>('all');
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function LearningPathScreen() {
       console.error('Error loading learning path:', error);
     }
     setRefreshing(false);
+    setLoading(false);
   };
 
   const handleStartSession = (session: PracticeRecommendation) => {
@@ -132,7 +135,7 @@ export default function LearningPathScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadLearningPath} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing && !loading} onRefresh={loadLearningPath} tintColor={COLORS.primary} />}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -142,6 +145,14 @@ export default function LearningPathScreen() {
           <Text style={styles.title}>Learning Path</Text>
           <View style={{ width: 24 }} />
         </View>
+
+        {loading ? (
+          <>
+            <Text style={styles.loadingText}>Personalizing your learning path...</Text>
+            <SkeletonList count={4} />
+          </>
+        ) : (
+          <>
 
         {/* AI Coach Recommendation */}
         {recommendation && (
@@ -289,6 +300,8 @@ export default function LearningPathScreen() {
             />
           ))}
         </View>
+        </>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -741,5 +754,11 @@ const styles = StyleSheet.create({
     color: COLORS.warning,
     fontSize: 9,
     fontWeight: 'bold',
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
   },
 });

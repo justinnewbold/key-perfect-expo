@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { ACHIEVEMENTS } from '../types';
+import CelebrationConfetti from './CelebrationConfetti';
 
 const { width } = Dimensions.get('window');
 
@@ -15,6 +16,7 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const hideToast = useCallback(() => {
     Animated.parallel([
@@ -35,6 +37,9 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
 
   useEffect(() => {
     if (achievementId) {
+      // Show confetti
+      setShowConfetti(true);
+
       // Show animation
       Animated.parallel([
         Animated.spring(translateY, {
@@ -59,9 +64,12 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
       // Auto hide after 3 seconds
       const timeout = setTimeout(() => {
         hideToast();
+        setShowConfetti(false);
       }, 3000);
 
       return () => clearTimeout(timeout);
+    } else {
+      setShowConfetti(false);
     }
   }, [achievementId, hideToast]); // Animated values from useRef don't change
 
@@ -71,29 +79,32 @@ export default function AchievementToast({ achievementId, onHide }: AchievementT
   if (!achievement) return null;
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          transform: [{ translateY }, { scale }],
-          opacity,
-        },
-      ]}
-    >
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>{achievement.icon}</Text>
-        </View>
-        <View style={styles.textContainer}>
-          <View style={styles.titleRow}>
-            <Ionicons name="trophy" size={16} color={COLORS.warning} />
-            <Text style={styles.label}>Achievement Unlocked!</Text>
+    <>
+      <CelebrationConfetti visible={showConfetti} type="achievement" />
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            transform: [{ translateY }, { scale }],
+            opacity,
+          },
+        ]}
+      >
+        <View style={styles.content}>
+          <View style={styles.iconContainer}>
+            <Text style={styles.icon}>{achievement.icon}</Text>
           </View>
-          <Text style={styles.name}>{achievement.name}</Text>
-          <Text style={styles.description}>{achievement.description}</Text>
+          <View style={styles.textContainer}>
+            <View style={styles.titleRow}>
+              <Ionicons name="trophy" size={16} color={COLORS.warning} />
+              <Text style={styles.label}>Achievement Unlocked!</Text>
+            </View>
+            <Text style={styles.name}>{achievement.name}</Text>
+            <Text style={styles.description}>{achievement.description}</Text>
+          </View>
         </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
+    </>
   );
 }
 
