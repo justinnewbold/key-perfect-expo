@@ -4,7 +4,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { COLORS } from '../utils/theme';
+import BadgeIcon from '../components/BadgeIcon';
+import { useApp } from '../context/AppContext';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -68,20 +71,29 @@ function StatsStack() {
 }
 
 // Tab icon component
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+function TabIcon({ name, focused, badgeCount, showBadge }: { name: string; focused: boolean; badgeCount?: number; showBadge?: boolean }) {
   return (
-    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-      <Ionicons 
-        name={name as any} 
-        size={24} 
-        color={focused ? COLORS.textPrimary : COLORS.textMuted} 
-      />
-    </View>
+    <BadgeIcon count={badgeCount} showBadge={showBadge} variant={badgeCount ? 'count' : 'dot'}>
+      <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+        <Ionicons
+          name={name as any}
+          size={24}
+          color={focused ? COLORS.textPrimary : COLORS.textMuted}
+        />
+      </View>
+    </BadgeIcon>
   );
 }
 
 // Main Navigation
 export default function Navigation() {
+  const { stats } = useApp();
+
+  // Calculate badge counts - example usage
+  // In a real app, these would come from actual data
+  const newAchievementsCount = 0; // Could be: stats?.unreadAchievements || 0
+  const hasNewContent = false; // Could be: stats?.hasNewLessons || false
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -93,9 +105,14 @@ export default function Navigation() {
           tabBarInactiveTintColor: COLORS.textMuted,
           tabBarLabelStyle: styles.tabLabel,
         }}
+        screenListeners={{
+          tabPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          },
+        }}
       >
-        <Tab.Screen 
-          name="Home" 
+        <Tab.Screen
+          name="Home"
           component={HomeStack}
           options={{
             tabBarIcon: ({ focused }) => (
@@ -103,17 +120,21 @@ export default function Navigation() {
             ),
           }}
         />
-        <Tab.Screen 
-          name="Practice" 
+        <Tab.Screen
+          name="Practice"
           component={PracticeStack}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon name={focused ? "musical-notes" : "musical-notes-outline"} focused={focused} />
+              <TabIcon
+                name={focused ? "musical-notes" : "musical-notes-outline"}
+                focused={focused}
+                showBadge={hasNewContent}
+              />
             ),
           }}
         />
-        <Tab.Screen 
-          name="Learn" 
+        <Tab.Screen
+          name="Learn"
           component={LearnStack}
           options={{
             tabBarIcon: ({ focused }) => (
@@ -121,12 +142,16 @@ export default function Navigation() {
             ),
           }}
         />
-        <Tab.Screen 
-          name="Stats" 
+        <Tab.Screen
+          name="Stats"
           component={StatsStack}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon name={focused ? "stats-chart" : "stats-chart-outline"} focused={focused} />
+              <TabIcon
+                name={focused ? "stats-chart" : "stats-chart-outline"}
+                focused={focused}
+                badgeCount={newAchievementsCount}
+              />
             ),
           }}
         />

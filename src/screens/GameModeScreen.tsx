@@ -19,6 +19,8 @@ import ComboIndicator from '../components/ComboIndicator';
 import GameProgressBar from '../components/GameProgressBar';
 import VoiceEncouragement, { getEncouragementMessage } from '../components/VoiceEncouragement';
 import CelebrationConfetti from '../components/CelebrationConfetti';
+import ShareButton from '../components/ShareButton';
+import SoundVisualizer from '../components/SoundVisualizer';
 import {
   GAME_MODES,
   ALL_NOTES,
@@ -170,6 +172,10 @@ export default function GameModeScreen() {
   const [encouragementMessage, setEncouragementMessage] = useState<string | null>(null);
   const [encouragementType, setEncouragementType] = useState<'success' | 'combo' | 'milestone' | 'perfect'>('success');
   const [showVictoryConfetti, setShowVictoryConfetti] = useState(false);
+
+  // Sound Visualizer
+  const [isPlayingSound, setIsPlayingSound] = useState(false);
+  const [currentFrequency, setCurrentFrequency] = useState(440);
 
   // Track all timeouts for cleanup
   const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -977,12 +983,27 @@ export default function GameModeScreen() {
     }, 500);
   };
 
+  // Helper to get frequency from note name
+  const getNoteFrequency = (noteName: string): number => {
+    const noteFrequencies: Record<string, number> = {
+      'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13,
+      'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00,
+      'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88,
+    };
+    return noteFrequencies[noteName] || 440;
+  };
+
   // Play Sound for current mode
   const playSound = async () => {
     safeHaptics.impactAsync(ImpactFeedbackStyle.Light);
 
+    // Activate visualizer
+    setIsPlayingSound(true);
+    setTimeout(() => setIsPlayingSound(false), 1000);
+
     try {
       if (modeId === 'speed' && speedState) {
+        setCurrentFrequency(getNoteFrequency(speedState.currentItem));
         await playNote(speedState.currentItem);
       } else if (modeId === 'survival' && survivalState) {
         // Survival mode can have notes or chords at higher levels
@@ -1018,10 +1039,20 @@ export default function GameModeScreen() {
   if (modeId === 'speed' && speedState) {
     if (speedState.timeLeft === 0) {
       const isNewHighScore = speedState.score > stats.speedModeHighScore;
+      const shareMessage = `🎵 Key Perfect - Speed Mode 🎵\n\n⏱️ Score: ${speedState.score}\n${isNewHighScore ? '🏆 New Personal Best!\n' : ''}🎯 Best: ${Math.max(speedState.score, stats.speedModeHighScore)}\n\nCan you beat my score? Download Key Perfect and test your musical ear!`;
+
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
           <CelebrationConfetti visible={isNewHighScore} type="victory" />
           <View style={styles.resultContainer}>
+            <View style={styles.resultHeader}>
+              <ShareButton
+                title="Speed Mode Result"
+                message={shareMessage}
+                size="md"
+                variant="secondary"
+              />
+            </View>
             <Text style={styles.resultEmoji}>⏱️</Text>
             <Text style={styles.resultTitle}>Time's Up!</Text>
             <Text style={styles.resultScore}>Score: {speedState.score}</Text>
@@ -1070,12 +1101,21 @@ export default function GameModeScreen() {
           {/* Combo Indicator */}
           <ComboIndicator combo={speedState.combo} style={{ marginBottom: SPACING.md }} />
 
+          {/* Sound Visualizer */}
+          <SoundVisualizer
+            isPlaying={isPlayingSound}
+            frequency={currentFrequency}
+            intensity={0.8}
+            color={COLORS.speedMode}
+            variant="waveform"
+          />
+
           {/* Progress Visualization */}
           <GameProgressBar
             score={speedState.score}
             attempts={speedState.score + (SPEED_MODE_DURATION - speedState.timeLeft - speedState.score)}
             previousBest={stats.speedModeHighScore / SPEED_MODE_DURATION * 100}
-            style={{ marginBottom: SPACING.lg }}
+            style={{ marginBottom: SPACING.md }}
           />
 
           <TouchableOpacity style={styles.playButton} onPress={playSound}>
@@ -1116,14 +1156,25 @@ export default function GameModeScreen() {
   // Render Survival Mode
   if (modeId === 'survival' && survivalState) {
     if (survivalState.lives === 0) {
+      const isNewHighScore = survivalState.score > stats.survivalModeHighScore;
+      const shareMessage = `🎵 Key Perfect - Survival Mode 🎵\n\n💀 Score: ${survivalState.score}\n📊 Level: ${survivalState.level}\n${isNewHighScore ? '🏆 New Personal Best!\n' : ''}🎯 Best: ${Math.max(survivalState.score, stats.survivalModeHighScore)}\n\nCan you survive longer? Download Key Perfect!`;
+
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
           <View style={styles.resultContainer}>
+            <View style={styles.resultHeader}>
+              <ShareButton
+                title="Survival Mode Result"
+                message={shareMessage}
+                size="md"
+                variant="secondary"
+              />
+            </View>
             <Text style={styles.resultEmoji}>💀</Text>
             <Text style={styles.resultTitle}>Game Over</Text>
             <Text style={styles.resultScore}>Score: {survivalState.score}</Text>
             <Text style={styles.resultLevel}>Level Reached: {survivalState.level}</Text>
-            {survivalState.score > stats.survivalModeHighScore && (
+            {isNewHighScore && (
               <Text style={styles.newHighScore}>New High Score!</Text>
             )}
             <Button
@@ -1164,6 +1215,15 @@ export default function GameModeScreen() {
             <Text style={styles.scoreText}>Score: {survivalState.score}</Text>
             <Text style={styles.levelText}>Level {survivalState.level}</Text>
           </View>
+
+          {/* Sound Visualizer */}
+          <SoundVisualizer
+            isPlaying={isPlayingSound}
+            frequency={currentFrequency}
+            intensity={0.9}
+            color={COLORS.survivalMode}
+            variant="circular"
+          />
 
           <TouchableOpacity style={styles.playButton} onPress={playSound}>
             <LinearGradient
@@ -1283,9 +1343,19 @@ export default function GameModeScreen() {
     }
 
     if (dailyCompleted) {
+      const shareMessage = `🎵 Key Perfect - Daily Challenge 🎵\n\n🎉 Challenge Completed!\n✨ Earned ${DAILY_CHALLENGE_BONUS} XP bonus\n📅 ${new Date().toLocaleDateString()}\n\nJoin me on Key Perfect for daily musical challenges!`;
+
       return (
         <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.container}>
           <View style={styles.resultContainer}>
+            <View style={styles.resultHeader}>
+              <ShareButton
+                title="Daily Challenge Complete"
+                message={shareMessage}
+                size="md"
+                variant="secondary"
+              />
+            </View>
             <Text style={styles.resultEmoji}>🎉</Text>
             <Text style={styles.resultTitle}>Daily Complete!</Text>
             <Text style={styles.resultScore}>+{DAILY_CHALLENGE_BONUS} XP Bonus!</Text>
@@ -1733,6 +1803,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.lg,
+  },
+  resultHeader: {
+    position: 'absolute',
+    top: 60,
+    right: SPACING.lg,
+    zIndex: 10,
   },
   resultEmoji: {
     fontSize: 72,

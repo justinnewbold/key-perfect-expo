@@ -20,6 +20,7 @@ import NotificationSettings from '../components/NotificationSettings';
 import { Instrument } from '../types';
 import { clearAllData } from '../utils/storage';
 import { restorePurchases, getOwnedInstrumentPacks } from '../services/payments';
+import * as Haptics from 'expo-haptics';
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
@@ -27,13 +28,15 @@ export default function SettingsScreen() {
   const toast = useToast();
 
   const handleVolumeChange = (increase: boolean) => {
-    const newVolume = increase 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newVolume = increase
       ? Math.min(100, settings.volume + 10)
       : Math.max(0, settings.volume - 10);
     updateSettings({ volume: newVolume });
   };
 
   const handleInstrumentSelect = (instrumentId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     updateSettings({ instrument: instrumentId as Instrument });
     toast.success('Instrument changed!');
   };
