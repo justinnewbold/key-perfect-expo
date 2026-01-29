@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../utils/theme';
 import { useToast } from './ToastNotification';
@@ -46,10 +47,10 @@ export default function ShareButton({
 
       // Create a shareable text file
       const fileName = `key-perfect-${title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.txt`;
-      const fileUri = `${require('expo-file-system').FileSystem.cacheDirectory}${fileName}`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
 
       // Write the message to a file
-      await require('expo-file-system').FileSystem.writeAsStringAsync(fileUri, message);
+      await FileSystem.writeAsStringAsync(fileUri, message);
 
       // Share the file
       await Sharing.shareAsync(fileUri, {

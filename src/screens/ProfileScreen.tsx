@@ -135,9 +135,10 @@ export default function ProfileScreen() {
           {/* XP Progress */}
           <View style={styles.xpContainer}>
             <View style={styles.xpHeader}>
-              <Text style={styles.xpLabel}>
-                <AnimatedCounter value={progression.level.currentXP} decimals={0} style={{ color: COLORS.textSecondary, fontSize: 14 }} /> / {progression.level.xpToNextLevel} XP
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <AnimatedCounter value={progression.level.currentXP} decimals={0} style={{ color: COLORS.textSecondary, fontSize: 14 }} />
+                <Text style={styles.xpLabel}> / {progression.level.xpToNextLevel} XP</Text>
+              </View>
               <AnimatedPercentageCounter value={Math.round(levelProgress)} style={styles.xpPercentage} />
             </View>
             <View style={styles.xpBarContainer}>
